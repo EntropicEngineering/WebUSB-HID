@@ -1,0 +1,27 @@
+{
+  "name": "webusb-hid",
+  "version": "0.1.0",
+  "description": "HID extension to WebUSB.",
+  "main": "dist/webusb_hid.js",
+  "scripts": {
+    "build": "webpack",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EntropicEngineering/WebUSB-HID.git"
+  },
+  "keywords": [
+    "webusb",
+    "hid"
+  ],
+  "author": "riggs",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/EntropicEngineering/WebUSB-HID/issues"
+  },
+  "homepage": "https://github.com/EntropicEngineering/WebUSB-HID#readme",
+  "devDependencies": {
+    "webpack": "^3.5.5"
+  }
+}

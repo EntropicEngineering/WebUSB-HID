@@ -4,14 +4,20 @@
  * USB HID utility for WebUSB.
  */
 
+// import * as WebUSB from "webusb.d";
+
 import Parser from 'binary-parser';
+
+interface String {
+    padStart(targetLength: number, padString?: string): string;
+}
 
 /* Utility Functions */
 function hex(buffer: ArrayBuffer) {
     Array.from(new Uint8Array(buffer), arg => "0x" + arg.toString(16).padStart(2, "0")).join(", ")
 }
 
-let version = new Parser()
+let version_parser = new Parser()
     .endianness('little')
     .uint8('major')
     .bit4('minor')
@@ -24,7 +30,22 @@ function decode_BCD(bcd_word: number) {
     return [major, minor, patch];
 }
 
-export async function connect(...filters: USBDeviceFilter[]) {
+const enum HID_Class_Descriptors {
+    HID = 0x21,
+    Report = 0x22,
+    Physical = 0x23,
+}
+
+class USBError extends Error {
+    constructor(message: any, status: WebUSB.USBTransferStatus) {
+        super(message);
+        this.name = 'USBError';
+        this.status = status;
+    }
+    status: WebUSB.USBTransferStatus;
+}
+
+export async function connect(...filters: WebUSB.USBDeviceFilter[]) {
     if (filters.length === 0) {
         filters = [{vendorId: 0x03eb}]
     }
@@ -39,25 +60,22 @@ export async function connect(...filters: USBDeviceFilter[]) {
     return device;
 }
 
-const enum HID_Class_Descriptors {
-    HID = 0x21,
-    Report = 0x22,
-    Physical = 0x23,
-}
-
-async function get_HID_class_descriptor(device, type, index, length, interface_id = 0) {
-    /* TODO: Error handling */
+async function get_HID_class_descriptor(device: WebUSB.USBDevice, type: number, index: number, length: number, interface_id = 0) {
     let result = await device.controlTransferIn({
-        requestType: "standard",
-        recipient: "interface",
+        requestType: WebUSB.USBRequestType.standard,
+        recipient: WebUSB.USBRecipient.interface,
         request: /* GET_DESCRIPTOR */ 0x06,
         value: type * 256 + index,
         index: interface_id
     }, length);
-    return result.data;
+    if (result.status !== WebUSB.USBTransferStatus.ok) {
+        throw new USBError("HID descriptor transfer failed.", result.status);
+    } else {
+        return result.data as DataView;
+    }
 }
 
-async function get_HID_descriptor(device, interface_id = 0) {
+async function get_HID_descriptor(device: WebUSB.USBDevice, interface_id = 0) {
     let length = 9;
     let data = await get_HID_class_descriptor(device, HID_Class_Descriptors.HID, 0, length, interface_id);
 
@@ -75,8 +93,15 @@ async function get_HID_descriptor(device, interface_id = 0) {
     return data;
 }
 
-function parse_HID_descriptor(data_view) {
-    const descriptor = {
+function parse_HID_descriptor(data_view: DataView) {
+    const descriptor: {
+        length: number | null,
+        type: number | null,
+        version: Array<number | null>,
+        country_code: number | null,
+        count: number | null,
+        descriptors: []
+    } = {
         length: null,
         type: null,
         version: [null, null, null],
@@ -95,8 +120,9 @@ function parse_HID_descriptor(data_view) {
     descriptor.count = data_view.getUint8(5);
     let offset = 6;
     while (offset < descriptor.length) {
-        let type = data_view.getUint8(offset);
-        if (!(type in HID_Class_Descriptors)) {
+        try {
+            let type = HID_Class_Descriptors[data_view.getUint8(offset)];
+        } catch(e) {
             throw Error("Invalid HID bDescriptorType at byte `{offset}`: " + hex(data_view.buffer));
         }
         let length = data_view.getUint16(offset + 1, true);

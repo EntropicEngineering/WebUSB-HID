@@ -4,7 +4,7 @@
 
 /// <reference types="typescript" />
 
-declare namespace WebUSB {
+declare module WebUSB {
 
     /** 5. Device Enumeration
      *
@@ -262,4 +262,6 @@ declare namespace WebUSB {
     }
 }
 
-// declare navigator.usb: WebUSB.USB;
+interface Navigator {
+    usb: WebUSB.USB;
+}

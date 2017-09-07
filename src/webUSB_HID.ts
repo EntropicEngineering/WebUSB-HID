@@ -6,6 +6,7 @@
 
 // import * as WebUSB from "webusb.d";
 
+import Buffer from 'buffer';
 import Parser from 'binary-parser';
 
 interface String {
@@ -22,6 +23,10 @@ let version_parser = new Parser()
     .uint8('major')
     .bit4('minor')
     .bit4('patch');
+
+function version(data_view: DataView) {
+    return version_parser.parse(Buffer.from(data_view.buffer));
+}
 
 function decode_BCD(bcd_word: number) {
     let major = Math.floor(bcd_word / 256);
@@ -93,40 +98,40 @@ async function get_HID_descriptor(device: WebUSB.USBDevice, interface_id = 0) {
     return data;
 }
 
-function parse_HID_descriptor(data_view: DataView) {
-    const descriptor: {
-        length: number | null,
-        type: number | null,
-        version: Array<number | null>,
-        country_code: number | null,
-        count: number | null,
-        descriptors: []
-    } = {
-        length: null,
-        type: null,
-        version: [null, null, null],
-        country_code: null,
-        count: null,
-        descriptors: []
-    };
-    descriptor.length = data_view.getUint8(0);
-    descriptor.type = data_view.getUint8(1);
-    if (descriptor.type !== HID_Class_Descriptors.HID) {
-        throw Error("Invalid HID bDescriptorType at byte 1: " + hex(data_view.buffer));
-    }
-    descriptor.version = decode_BCD(data_view.getUint16(2, true));
-    descriptor.country_code = data_view.getUint8(4);
-    /* TODO: Care about country code */
-    descriptor.count = data_view.getUint8(5);
-    let offset = 6;
-    while (offset < descriptor.length) {
-        try {
-            let type = HID_Class_Descriptors[data_view.getUint8(offset)];
-        } catch(e) {
-            throw Error("Invalid HID bDescriptorType at byte `{offset}`: " + hex(data_view.buffer));
-        }
-        let length = data_view.getUint16(offset + 1, true);
-        descriptor.descriptors.push([])
-    }
-    return descriptor;
-}
+// function parse_HID_descriptor(data_view: DataView) {
+//     const descriptor: {
+//         length: number | null,
+//         type: number | null,
+//         version: Array<number | null>,
+//         country_code: number | null,
+//         count: number | null,
+//         descriptors: []
+//     } = {
+//         length: null,
+//         type: null,
+//         version: [null, null, null],
+//         country_code: null,
+//         count: null,
+//         descriptors: []
+//     };
+//     descriptor.length = data_view.getUint8(0);
+//     descriptor.type = data_view.getUint8(1);
+//     if (descriptor.type !== HID_Class_Descriptors.HID) {
+//         throw Error("Invalid HID bDescriptorType at byte 1: " + hex(data_view.buffer));
+//     }
+//     descriptor.version = decode_BCD(data_view.getUint16(2, true));
+//     descriptor.country_code = data_view.getUint8(4);
+//     /* TODO: Care about country code */
+//     descriptor.count = data_view.getUint8(5);
+//     let offset = 6;
+//     while (offset < descriptor.length) {
+//         try {
+//             let type = HID_Class_Descriptors[data_view.getUint8(offset)];
+//         } catch(e) {
+//             throw Error("Invalid HID bDescriptorType at byte `{offset}`: " + hex(data_view.buffer));
+//         }
+//         let length = data_view.getUint16(offset + 1, true);
+//         descriptor.descriptors.push([])
+//     }
+//     return descriptor;
+// }

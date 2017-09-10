@@ -1,8 +1,7 @@
-// Type definitions for WebUSB <https://github.com/WICG/webusb>
-// Project: WebUSB
+// Type definitions for WebUSB
+// Project: https://github.com/WICG/webusb
 // Definitions by: Benjamin Riggs <https://github.com/riggs>
-
-/// <reference types="typescript" />
+// Definitions: https://github.com/DefinitelyTyped/DefinitelyTyped
 
 declare module WebUSB {
 

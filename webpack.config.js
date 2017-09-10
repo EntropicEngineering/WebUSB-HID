@@ -21,7 +21,7 @@ module.exports = {
     extensions: [".ts", ".js"]
   },
   output: {
-    filename: 'webusb-hid.js',
+    filename: 'webusb_hid.js',
     path: path.resolve(__dirname, 'dist'),
     library: "webUSB_HID",
     libraryTarget: "umd"
@@ -31,6 +31,12 @@ module.exports = {
       commonjs: "binary-parser",
       commonjs2: "binary-parser",
       amd: "binary-parser",
+      root: "_"
+    },
+    "buffer": {
+      commonjs: "buffer",
+      commonjs2: "buffer",
+      amd: "buffer",
       root: "_"
     }
   }

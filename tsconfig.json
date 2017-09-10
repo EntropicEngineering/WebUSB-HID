@@ -3,7 +3,7 @@
     "allowJs": true,
     "module": "es6",
     "moduleResolution": "node",
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "noImplicitThis": true,
     "outDir": "./dist/",
     "preserveConstEnums": true,

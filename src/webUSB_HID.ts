@@ -4,41 +4,15 @@
  * USB HID utility for WebUSB.
  */
 
-// import * as WebUSB from "webusb.d";
-
 import Buffer from 'buffer';
 import Parser from 'binary-parser';
 
-interface String {
-    padStart(targetLength: number, padString?: string): string;
-}
+/*************
+ * Utilities *
+ *************/
 
-/* Utility Functions */
 function hex(buffer: ArrayBuffer) {
     Array.from(new Uint8Array(buffer), arg => "0x" + arg.toString(16).padStart(2, "0")).join(", ")
-}
-
-let version_parser = new Parser()
-    .endianness('little')
-    .uint8('major')
-    .bit4('minor')
-    .bit4('patch');
-
-function version(data_view: DataView) {
-    return version_parser.parse(Buffer.from(data_view.buffer));
-}
-
-function decode_BCD(bcd_word: number) {
-    let major = Math.floor(bcd_word / 256);
-    let minor = Math.floor((bcd_word % 256) / 16);
-    let patch = (bcd_word % 256) % 16;
-    return [major, minor, patch];
-}
-
-const enum HID_Class_Descriptors {
-    HID = 0x21,
-    Report = 0x22,
-    Physical = 0x23,
 }
 
 class USBError extends Error {
@@ -49,6 +23,118 @@ class USBError extends Error {
     }
     status: WebUSB.USBTransferStatus;
 }
+
+enum HID_Class_Descriptors {
+    HID = 0x21,
+    Report = 0x22,
+    Physical = 0x23,
+}
+
+enum HID_Report_Item_Type {
+    Main = 0,
+    Global = 1,
+    Local = 2,
+    Reserved = 3
+}
+
+
+/**********************************
+ * Binary deserialization parsers *
+ **********************************/
+
+let BCD_version = new Parser()
+    .endianess(Parser.Endianness.little)
+    .uint8('major')
+    .bit4('minor')
+    .bit4('patch');
+
+let HID_descriptor = new Parser()
+    .endianess(Parser.Endianness.little)
+    .uint8('length')
+    .uint8('type', {assert: HID_Class_Descriptors.HID})
+    .nest('version', {type: BCD_version})
+    .uint8('country_code')
+    .uint8('count', {assert: (count: number) => (count > 0)})
+    .array('descriptors', {
+        type: new Parser()
+            .endianess(Parser.Endianness.little)
+            .uint8('type', {formatter: (type: HID_Class_Descriptors) => HID_Class_Descriptors[type]})
+            .uint16('size'),
+        length: (parsed: Parser.Parsed)  => parsed.count as number
+    })
+    .array('extra', {
+        type: 'uint8',
+        readUntil: 'eof',
+        assert: (array: Array<number>) => (array.length === 0)
+    });
+
+let main_byte_0 = new Parser()
+    .bit1('data_Vs_constant')
+    .bit1('array_Vs_variable')
+    .bit1('absolute_Vs_relative')
+    .bit1('no_wrap_Vs_wrap')
+    .bit1('linear_Vs_non_linear')
+    .bit1('preferred_state_Vs_no_preferred')
+    .bit1('no_null_position_Vs_null_state')
+    .bit1('not_volitile_Vs_volitie');
+
+let main_byte_1 = new Parser()
+    .bit1('bit_field_Vs_buffered_bytes');
+
+let main_item = new Parser()
+    .endianess(Parser.Endianness.little)
+    .choice('', {
+        tag: 'size',
+        choices: {
+            0: new Parser(), /* no-op parser */
+            1: new Parser().nest('', {type: main_byte_0}),
+            2: new Parser().nest('', {type: main_byte_0}).nest('', {type: main_byte_1}),
+            4: new Parser().nest('', {type: main_byte_0}).nest('', {type: main_byte_1})
+        }
+    });
+
+let global_item = new Parser()
+    .endianess(Parser.Endianness.little)
+
+let local_item = new Parser()
+    .endianess(Parser.Endianness.little)
+
+let short_item = new Parser()
+    .endianess(Parser.Endianness.little)
+    .choice('', {
+        tag: "type",
+        choices: {
+            0: main_item,
+            1: global_item,
+            2: local_item
+        }
+    });
+
+let long_item = new Parser()
+    .endianess(Parser.Endianness.little)
+    .uint8('data_size')
+    .uint8('long_item_tag', {assert: (tag: number) => (tag >= 0xF0)})
+    .buffer('data', {length: 'data_size'});
+
+let item = new Parser()
+    .endianess(Parser.Endianness.little)
+    .bit2('size', {
+        formatter: (size: number) => (size === 3 ? 4 : size)    /* 0b11 means 4 bytes */
+    })
+    .bit2('type', {
+        assert: (type: number) => (type !== 3)  /* Reserved value */
+    })
+    .bit4('tag')
+    .choice('', {
+        tag: (parsed: Parser.Parsed) => (parsed.tag as number << 4 | parsed.type as number << 2 | parsed.size as number),
+        choices: {0b11111110: long_item},
+        defaultChoice: short_item
+    });
+
+
+/**************
+ * Public API *
+ **************/
 
 export async function connect(...filters: WebUSB.USBDeviceFilter[]) {
     if (filters.length === 0) {
@@ -92,46 +178,9 @@ async function get_HID_descriptor(device: WebUSB.USBDevice, interface_id = 0) {
     }
 
     if (data.byteLength < length) {
-        throw Error("Invalid HID descriptor length: " + hex(data.buffer));
+        throw new USBError("Invalid HID descriptor length: " + hex(data.buffer), WebUSB.USBTransferStatus.ok);
     }
 
     return data;
 }
 
-// function parse_HID_descriptor(data_view: DataView) {
-//     const descriptor: {
-//         length: number | null,
-//         type: number | null,
-//         version: Array<number | null>,
-//         country_code: number | null,
-//         count: number | null,
-//         descriptors: []
-//     } = {
-//         length: null,
-//         type: null,
-//         version: [null, null, null],
-//         country_code: null,
-//         count: null,
-//         descriptors: []
-//     };
-//     descriptor.length = data_view.getUint8(0);
-//     descriptor.type = data_view.getUint8(1);
-//     if (descriptor.type !== HID_Class_Descriptors.HID) {
-//         throw Error("Invalid HID bDescriptorType at byte 1: " + hex(data_view.buffer));
-//     }
-//     descriptor.version = decode_BCD(data_view.getUint16(2, true));
-//     descriptor.country_code = data_view.getUint8(4);
-//     /* TODO: Care about country code */
-//     descriptor.count = data_view.getUint8(5);
-//     let offset = 6;
-//     while (offset < descriptor.length) {
-//         try {
-//             let type = HID_Class_Descriptors[data_view.getUint8(offset)];
-//         } catch(e) {
-//             throw Error("Invalid HID bDescriptorType at byte `{offset}`: " + hex(data_view.buffer));
-//         }
-//         let length = data_view.getUint16(offset + 1, true);
-//         descriptor.descriptors.push([])
-//     }
-//     return descriptor;
-// }

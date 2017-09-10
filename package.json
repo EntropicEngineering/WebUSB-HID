@@ -2,7 +2,7 @@
   "name": "webusb-hid",
   "version": "0.1.0",
   "description": "HID extension to WebUSB.",
-  "main": "dist/webusb-hid.js",
+  "main": "dist/webusb_hid.js",
   "module": "src/webUSB_HID.js",
   "scripts": {
     "build": "webpack",

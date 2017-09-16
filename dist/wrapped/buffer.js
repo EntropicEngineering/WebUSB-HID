@@ -2017,11 +2017,11 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
       module.exports = exports;
   }
   wrap.call(self);
-  console.log('wraplib buffer.wrapped.js buffer', {self, window, module, returnVal});
+  console.log('wraplib buffer.js buffer', {self, window, module, returnVal});
   result = self.buffer || window.buffer || module.exports || returnVal;
-  if (!result) throw Error("wrapper failed, file: buffer.wrapped.js name: buffer");
+  if (!result) throw Error("wrapper failed, file: buffer.js name: buffer");
   if (useGlobal) win.buffer = result;
 }
 export default result;
 
-//# sourceMappingURL=buffer.wrapped.js.map
+//# sourceMappingURL=buffer.js.map

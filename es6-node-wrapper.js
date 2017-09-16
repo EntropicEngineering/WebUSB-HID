@@ -58,9 +58,6 @@ export default result;
   }
 
   apply(compiler) {
-    const options = this.options;
-    const name = this.names;
-
     compiler.plugin('compilation', (compilation) => {
       compilation.plugin("optimize-chunk-assets", (chunks, callback) => {
         chunks.forEach((chunk) => {

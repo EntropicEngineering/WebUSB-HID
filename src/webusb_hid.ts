@@ -4,10 +4,15 @@
  * USB HID utility for WebUSB.
  */
 
+/* Typescript imports. Comment out in generated js file. */
 /// <reference path="../typings/binary_parser.d.ts"/>
 /// <reference path="../typings/buffer.d.ts"/>
 import Parser from 'binary-parser';
 import Buffer from 'buffer';
+
+/* Browser imports. Uncomment in generated js file. */
+// import _Parser from './wrapped/binary_parser.js';   let Parser = _Parser.Parser;
+// import _Buffer from './wrapped/buffer.js';  let Buffer = _Buffer.Buffer;
 
 
 /*************
@@ -340,5 +345,7 @@ export async function get_HID_descriptor(device: WebUSB.USBDevice, interface_id 
     return HID_descriptor.parse(Buffer.from(data.buffer));
 }
 
-navigator.hid.connect = connect;
-navigator.hid.get_HID_descriptor = get_HID_descriptor;
+navigator.hid = {
+    connect: connect,
+    get_HID_descriptor: get_HID_descriptor
+};

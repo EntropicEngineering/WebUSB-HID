@@ -20,12 +20,12 @@ module.exports = {
     extensions: [".js"]
   },
   output: {
-    filename: '[name].wrapped.js',
-    path: path.resolve(__dirname, 'dist'),
+    filename: '[name].js',
+    path: path.resolve(__dirname, 'dist/wrapped'),
   },
   plugins: [
     new Wrapper({
-        debug: true
+      debug: true
     })
   ]
 };

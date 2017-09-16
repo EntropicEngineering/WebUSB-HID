@@ -3,10 +3,14 @@
  *
  * USB HID utility for WebUSB.
  */
+/* Typescript imports. Comment out in generated js file. */
 /// <reference path="../typings/binary_parser.d.ts"/>
 /// <reference path="../typings/buffer.d.ts"/>
-import Parser from 'binary-parser';
-import Buffer from 'buffer';
+// import Parser from 'binary-parser';
+// import Buffer from 'buffer';
+/* Browser imports. Uncomment in generated js file. */
+import _Parser from './wrapped/binary_parser.js';   let Parser = _Parser.Parser;
+import _Buffer from './wrapped/buffer.js';  let Buffer = _Buffer.Buffer;
 /*************
  * Utilities *
  *************/
@@ -259,13 +263,13 @@ let physical_descriptor = (length) => new Parser()
  *********************/
 async function get_HID_class_descriptor(device, type, index, length, interface_id = 0) {
     let result = await device.controlTransferIn({
-        requestType: WebUSB.USBRequestType.standard,
-        recipient: WebUSB.USBRecipient.interface,
+        requestType: 0 /* standard */,
+        recipient: 1 /* interface */,
         request: /* GET_DESCRIPTOR */ 0x06,
         value: type * 256 + index,
         index: interface_id
     }, length);
-    if (result.status !== WebUSB.USBTransferStatus.ok) {
+    if (result.status !== 0 /* ok */) {
         throw new USBError("HID descriptor transfer failed.", result.status);
     }
     else {
@@ -295,10 +299,12 @@ export async function get_HID_descriptor(device, interface_id = 0) {
         data = await get_HID_class_descriptor(device, 33 /* HID */, 0, length, interface_id);
     }
     if (data.byteLength < length) {
-        throw new USBError("Invalid HID descriptor length: " + hex(data.buffer), WebUSB.USBTransferStatus.ok);
+        throw new USBError("Invalid HID descriptor length: " + hex(data.buffer), 0 /* ok */);
     }
     return HID_descriptor.parse(Buffer.from(data.buffer));
 }
-navigator.hid.connect = connect;
-navigator.hid.get_HID_descriptor = get_HID_descriptor;
+navigator.hid = {
+    connect: connect,
+    get_HID_descriptor: get_HID_descriptor
+};
 //# sourceMappingURL=webusb_hid.js.map

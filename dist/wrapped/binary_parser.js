@@ -894,11 +894,11 @@ exports.Context = Context;
       module.exports = exports;
   }
   wrap.call(self);
-  console.log('wraplib binary_parser.wrapped.js binary_parser', {self, window, module, returnVal});
+  console.log('wraplib binary_parser.js binary_parser', {self, window, module, returnVal});
   result = self.binary_parser || window.binary_parser || module.exports || returnVal;
-  if (!result) throw Error("wrapper failed, file: binary_parser.wrapped.js name: binary_parser");
+  if (!result) throw Error("wrapper failed, file: binary_parser.js name: binary_parser");
   if (useGlobal) win.binary_parser = result;
 }
 export default result;
 
-//# sourceMappingURL=binary_parser.wrapped.js.map
+//# sourceMappingURL=binary_parser.js.map

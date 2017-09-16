@@ -5,7 +5,7 @@
   "main": "dist/webusb_hid.js",
   "module": "src/webUSB_HID.js",
   "scripts": {
-    "build": "tsc && webpack",
+    "build": "webpack && tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

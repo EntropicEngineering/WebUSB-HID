@@ -25,7 +25,8 @@ module.exports = {
   },
   plugins: [
     new Wrapper({
-      debug: true
+      debug: true,
+      // set_global: true
     })
   ]
 };

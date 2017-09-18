@@ -12,3 +12,6 @@ interface Navigator {
     hid: any;
 }
 
+interface Window {
+    Buffer: any;
+}

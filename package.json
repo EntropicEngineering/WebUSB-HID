@@ -6,6 +6,8 @@
   "module": "src/webUSB_HID.js",
   "scripts": {
     "build": "webpack && tsc",
+    "tsc": "tsc",
+    "webpack": "webpack",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

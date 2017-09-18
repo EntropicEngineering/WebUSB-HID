@@ -88,23 +88,23 @@ declare module WebUSB {
      *
      * https://wicg.github.io/webusb/#transfers
      */
-    export enum USBRequestType {
-        standard,
-        class,
-        vendor
+    export const enum USBRequestType {
+        standard = 'standard',
+        class = 'class',
+        vendor = 'vendor'
     }
 
-    export enum USBRecipient {
-        device,
-        interface,
-        endpoint,
-        other
+    export const enum USBRecipient {
+        device = 'device',
+        interface = 'interface',
+        endpoint = 'endpoint',
+        other = 'other'
     }
 
-    export enum USBTransferStatus {
-        ok,
-        stall,
-        babble
+    export const enum USBTransferStatus {
+        ok = 'ok',
+        stall = 'stall',
+        babble = 'babble'
     }
 
     export interface USBControlTransferParameters {
@@ -187,15 +187,15 @@ declare module WebUSB {
      *
      * https://wicg.github.io/webusb/#endpoints
      */
-    export enum USBDirection {
-        in,
-        out
+    export const enum USBDirection {
+        in = 'in',
+        out = 'out'
     }
 
-    export enum USBEndpointType {
-        bulk,
-        interrupt,
-        isochronous
+    export const enum USBEndpointType {
+        bulk = 'bulk',
+        interrupt = 'interrupt',
+        isochronous = 'isochronous'
     }
 
     export interface USBEndpoint {
@@ -232,7 +232,7 @@ declare module WebUSB {
     interface PermissionDescriptor {
         name: PermissionName;
     }
-    enum PermissionName {
+    const enum PermissionName {
         "geolocation",
         "notifications",
         "push",
@@ -254,10 +254,10 @@ declare module WebUSB {
         readonly state: PermissionState;
         onchange: EventHandler;
     }
-    enum PermissionState {
-        granted,
-        denied,
-        prompt,
+    const enum PermissionState {
+        granted = 'granted',
+        denied = 'denied',
+        prompt = 'prompt',
     }
 }
 

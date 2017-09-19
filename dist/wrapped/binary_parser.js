@@ -9,7 +9,7 @@ if (window.binary_parser) {
   const module = {};
   const window = {};
   const self = {};
-  const useGlobal = false;
+  const useGlobal = true;
   let returnVal;
   function wrap () {
     returnVal =

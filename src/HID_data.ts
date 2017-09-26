@@ -1,16 +1,20 @@
 
-
 export const enum Class_Descriptors {
     HID         = 0x21,
     Report      = 0x22,
     Physical    = 0x23,
 }
 
+export const enum Descriptor_Request {
+    GET         = 0x06,
+    SET         = 0x07,
+}
+
 export const enum Report_Item_Type {
     Main        = 0b00,
     Global      = 0b01,
     Local       = 0b10,
-    Reserved    = 0b11,
+    /* Reserved = 0b11 */
 }
 
 export const enum Report_Main_Item_Tag {
@@ -61,3 +65,17 @@ export const enum Report_Local_Item_Tag {
     Delimiter           = 0b1010,
 }
 
+export const enum Request_Type {
+    GET_REPORT          = 0x01,
+    GET_IDLE            = 0x02,
+    GET_PROTOCOL        = 0x03,
+    SET_REPORT          = 0x09,
+    SET_IDLE            = 0x0A,
+    SET_PROTOCOL        = 0x0B,
+}
+
+export const enum Request_Report_Type {
+    Input               = 0x01,
+    Output              = 0x02,
+    Feature             = 0x03,
+}

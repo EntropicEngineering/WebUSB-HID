@@ -1,4 +1,4 @@
-// /* Typescript imports. Comment out in generated js file. */
+/* Typescript imports. Comment out in generated js file. */
 // import Parser from 'binary-parser';
 // import * as HID from './HID_data';
 // /* Browser imports. Uncomment in generated js file. */
@@ -157,7 +157,7 @@ export let item = new Parser()
     .bit4('tag')
     .choice('', {
     // tag: function() {return parsed.tag << 4 | parsed.type << 2 | parsed.size},
-    tag: function () { console.log('item:', this); return (this.tag * 16 + this.type * 4 + this.size); },
+    tag: function () { return (this.tag * 16 + this.type * 4 + this.size); },
     choices: { 0b11111110: long_item },
     defaultChoice: short_item
 });

@@ -8,6 +8,14 @@ interface String {
     padStart(targetLength: number, padString?: string): string;
 }
 
+interface MapConstructor {
+    assign(target: Map<any, any>, ...sources: Array<Map<any, any>>): Map<any, any>
+}
+
+interface Map<K, V> {
+    update(...sources: Array<Map<any, any>>): Map<K, V>
+}
+
 interface Navigator {
     hid: any;
 }

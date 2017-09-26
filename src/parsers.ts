@@ -155,9 +155,9 @@ let short_item = new Parser()
         // tag: function() {return this.tag as number},
         tag: 'type',
         choices: {
-            0: main_item,
-            1: global_item,
-            2: local_item
+            [HID.Report_Item_Type.Main]: main_item,
+            [HID.Report_Item_Type.Global]: global_item,
+            [HID.Report_Item_Type.Local]: local_item
         }
     });
 
@@ -178,7 +178,7 @@ export let item = new Parser()
     .bit4('tag')
     .choice('', {
         // tag: function() {return parsed.tag << 4 | parsed.type << 2 | parsed.size},
-        tag: function() {console.log('item:', this); return (<number>this.tag * 16 + <number>this.type * 4 + <number>this.size)},
+        tag: function() {return (<number>this.tag * 16 + <number>this.type * 4 + <number>this.size)},
         choices: {0b11111110: long_item},
         defaultChoice: short_item
     });

@@ -4,6 +4,11 @@ export var Class_Descriptors;
     Class_Descriptors[Class_Descriptors["Report"] = 34] = "Report";
     Class_Descriptors[Class_Descriptors["Physical"] = 35] = "Physical";
 })(Class_Descriptors || (Class_Descriptors = {}));
+export var Descriptor_Request;
+(function (Descriptor_Request) {
+    Descriptor_Request[Descriptor_Request["GET"] = 6] = "GET";
+    Descriptor_Request[Descriptor_Request["SET"] = 7] = "SET";
+})(Descriptor_Request || (Descriptor_Request = {}));
 export var Report_Item_Type;
 (function (Report_Item_Type) {
     Report_Item_Type[Report_Item_Type["Main"] = 0] = "Main";
@@ -59,4 +64,19 @@ export var Report_Local_Item_Tag;
     Report_Local_Item_Tag[Report_Local_Item_Tag["String_Maximum"] = 9] = "String_Maximum";
     Report_Local_Item_Tag[Report_Local_Item_Tag["Delimiter"] = 10] = "Delimiter";
 })(Report_Local_Item_Tag || (Report_Local_Item_Tag = {}));
+export var Request_Type;
+(function (Request_Type) {
+    Request_Type[Request_Type["GET_REPORT"] = 1] = "GET_REPORT";
+    Request_Type[Request_Type["GET_IDLE"] = 2] = "GET_IDLE";
+    Request_Type[Request_Type["GET_PROTOCOL"] = 3] = "GET_PROTOCOL";
+    Request_Type[Request_Type["SET_REPORT"] = 9] = "SET_REPORT";
+    Request_Type[Request_Type["SET_IDLE"] = 10] = "SET_IDLE";
+    Request_Type[Request_Type["SET_PROTOCOL"] = 11] = "SET_PROTOCOL";
+})(Request_Type || (Request_Type = {}));
+export var Request_Report_Type;
+(function (Request_Report_Type) {
+    Request_Report_Type[Request_Report_Type["Input"] = 1] = "Input";
+    Request_Report_Type[Request_Report_Type["Output"] = 2] = "Output";
+    Request_Report_Type[Request_Report_Type["Feature"] = 3] = "Feature";
+})(Request_Report_Type || (Request_Report_Type = {}));
 //# sourceMappingURL=HID_data.js.map

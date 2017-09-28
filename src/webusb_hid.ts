@@ -10,7 +10,8 @@
 import Parser from 'binary-parser';
 import Buffer from 'buffer';
 import * as HID from './HID_data';
-import {HID_descriptor, item} from './parsers';
+import * as USB from './USB_data';
+import {HID_descriptor, item, languages_string_descriptor, string_descriptor} from './parsers';
 
 /* Browser imports. Uncomment in generated js file. */
 // import _Parser from './wrapped/binary_parser.js';   let Parser = _Parser.Parser;
@@ -69,6 +70,7 @@ export default class Device {
     private _physical_descriptors: Array<Array<Parser.Parsed>> = [];
     private _reports: Array<Map<number, Parser.Parsed>> = [];
     private _report_names: Array<Map<number, Map<string, number>>> = [];
+    private _string_descriptors: Array<Array<string | Array<number>>> = [];
 
     verify_connection() {
         if (this.webusb_device === undefined) {
@@ -92,6 +94,48 @@ export default class Device {
         } else {
             throw new Error("Invalid report: " + report);
         }
+    }
+
+    async get_string_descriptor(index: number, language_id: number | undefined = undefined) {
+        this.verify_connection();
+        if (index < 0) {throw new Error("Invalid string descriptor index")}
+        if (this._string_descriptors[this._interface_id] === undefined) {
+            this._string_descriptors[this._interface_id] = [];
+            await this.get_string_descriptor(0);
+        }
+        if (this._string_descriptors[this._interface_id][index] !== undefined) {
+            return this._string_descriptors[this._interface_id][index];
+        }
+        if (language_id !== undefined && !((<Array<number>>this._string_descriptors[this._interface_id][0]).includes(language_id))) {
+            throw new Error("Unsupported language id: " + language_id);
+        }
+        let length = 3;
+        let data = Device.verify_transfer(await this.webusb_device!.controlTransferIn({
+            requestType: WebUSB.USBRequestType.standard,
+            recipient: WebUSB.USBRecipient.device,
+            request: USB.Request_Type.GET_DESCRIPTOR,
+            value: USB.Descriptor_Types.STRING * 256 + index,
+            index: language_id ? language_id : 0
+        }, length));
+        let returned_length = data.getUint8(0);
+        if (returned_length > length) {
+            length = returned_length;
+            data = Device.verify_transfer(await this.webusb_device!.controlTransferIn({
+                requestType: WebUSB.USBRequestType.standard,
+                recipient: WebUSB.USBRecipient.device,
+                request: USB.Request_Type.GET_DESCRIPTOR,
+                value: USB.Descriptor_Types.STRING * 256 + index,
+                index: language_id ? language_id : 0
+            }, length));
+        }
+        let result: string | Array<number>;
+        if (index === 0) {
+            result = <Array<number>>languages_string_descriptor.parse(Buffer.from(data.buffer)).LANGID;
+        } else {
+            result = <string>string_descriptor.parse(Buffer.from(data.buffer)).string;
+        }
+        this._string_descriptors[this._interface_id][index] = result;
+        return result;
     }
 
     async get_HID_descriptor() {
@@ -198,63 +242,95 @@ export default class Device {
                 [HID.Request_Report_Type.Feature, new Map()],
             ]);
 
-            let stack = [];
+            const global_stack: Array<Map<string, Parser.Data>> = [];
 
-            let state = new Map([
+            let usage_stack: Array<Map<string, Parser.Data> | Array<Map<string, Parser.Data>>> = [];
+
+            let delimiter = false;
+
+            const state = new Map([
                 [HID.Report_Item_Type.Global, new Map()],
                 [HID.Report_Item_Type.Local, new Map()],
                 [HID.Report_Item_Type.Main, new Map()],
             ]);
 
-            let data_field_main_item_types = [HID.Report_Main_Item_Tag.Input, HID.Report_Main_Item_Tag.Output, HID.Report_Main_Item_Tag.Feature];
+            function add_raw_tags(item: Parser.Parsed) {
+                /* Strips 'type', 'tag', and 'size' from item, then adds whatever is left to the correct state table */
+                state.get(item.type as HID.Report_Item_Type)!.update(Object.entries(item).slice(3));
+            }
+
+            const data_field_main_item_types = [HID.Report_Main_Item_Tag.Input, HID.Report_Main_Item_Tag.Output, HID.Report_Main_Item_Tag.Feature];
 
             for (const item of <Array<Parser.Parsed>>this.report_descriptor.items) {
                 switch (item.type as HID.Report_Item_Type) {
                     case HID.Report_Item_Type.Global:
                         switch (item.tag as HID.Report_Global_Item_Tag) {
                             case HID.Report_Global_Item_Tag.Usage_Page:
-
-                                break;
                             case HID.Report_Global_Item_Tag.Logical_Minimum:
-
-                                break;
                             case HID.Report_Global_Item_Tag.Logical_Maximum:
-
-                                break;
                             case HID.Report_Global_Item_Tag.Physical_Minimum:
-
-                                break;
                             case HID.Report_Global_Item_Tag.Physical_Maximum:
-
-                                break;
-                            case HID.Report_Global_Item_Tag.Unit_Exponent:
-
-                                break;
                             case HID.Report_Global_Item_Tag.Unit:
-
-                                break;
+                            case HID.Report_Global_Item_Tag.Unit_Exponent:
                             case HID.Report_Global_Item_Tag.Report_Size:
-
-                                break;
                             case HID.Report_Global_Item_Tag.Report_ID:
-
-                                break;
                             case HID.Report_Global_Item_Tag.Report_Count:
-
+                                add_raw_tags(item);
                                 break;
                             case HID.Report_Global_Item_Tag.Push:
-
+                                global_stack.push(new Map(state.get(HID.Report_Item_Type.Global)!.entries()));
                                 break;
                             case HID.Report_Global_Item_Tag.Pop:
-
+                                let g = state.get(HID.Report_Item_Type.Global)!;
+                                let s = global_stack.pop() || new Map();
+                                g.clear();
+                                g.update(s);
                                 break;
                         }
                         break;
                     case HID.Report_Item_Type.Local:
-
+                        switch (item.tag as HID.Report_Local_Item_Tag) {
+                            case HID.Report_Local_Item_Tag.Usage:
+                                if (delimiter) {
+                                    (<Array<Map<string, Parser.Data>>>usage_stack[usage_stack.length - 1]).push(new Map(Object.entries(item).slice(3)));
+                                } else {
+                                    usage_stack.push(new Map(Object.entries(item).slice(3)));
+                                }
+                                break;
+                            case HID.Report_Local_Item_Tag.Usage_Minimum:
+                            case HID.Report_Local_Item_Tag.Usage_Maximum:
+                            case HID.Report_Local_Item_Tag.Designator_Index:
+                            case HID.Report_Local_Item_Tag.Designator_Minimum:
+                            case HID.Report_Local_Item_Tag.Designator_Maximum:
+                                add_raw_tags(item);
+                                break;
+                            case HID.Report_Local_Item_Tag.String_Index:
+                                break;
+                            case HID.Report_Local_Item_Tag.String_Minimum:
+                                break;
+                            case HID.Report_Local_Item_Tag.String_Maximum:
+                                break;
+                            case HID.Report_Local_Item_Tag.Delimiter:
+                                delimiter = !delimiter;
+                                if (delimiter) {
+                                    usage_stack.push([]);
+                                }
+                                break;
+                        }
                         break;
                     case HID.Report_Item_Type.Main:
-
+                        switch (item.tag as HID.Report_Main_Item_Tag) {
+                            case HID.Report_Main_Item_Tag.Input:
+                                break;
+                            case HID.Report_Main_Item_Tag.Output:
+                                break;
+                            case HID.Report_Main_Item_Tag.Feature:
+                                break;
+                            case HID.Report_Main_Item_Tag.Collection:
+                                break;
+                            case HID.Report_Main_Item_Tag.End_Collection:
+                                break;
+                        }
                         break;
                 }
             }

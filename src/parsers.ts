@@ -2,6 +2,7 @@
 /* Typescript imports. Comment out in generated js file. */
 import Parser from 'binary-parser';
 import * as HID from './HID_data';
+import * as USB from './USB_data';
 
 /* Browser imports. Uncomment in generated js file. */
 // import _Parser from './wrapped/binary_parser.js';   let Parser = _Parser.Parser;
@@ -120,7 +121,11 @@ let global_item = new Parser()
             [HID.Report_Global_Item_Tag.Physical_Minimum]: sized_int('physical_minimum'),
             [HID.Report_Global_Item_Tag.Physical_Maximum]: sized_int('physical_maximum'),
             /* Parsing unit information left as an exercise to the reader. */
-            [HID.Report_Global_Item_Tag.Unit_Exponent]: new Parser().uint8('unit_exponent'),
+            [HID.Report_Global_Item_Tag.Unit_Exponent]: new Parser().uint8('unit_exponent', {formatter: (value: number) => {
+                value &= 0xF;    /* Only the first nibble is used */
+                if (value > 7) { value -= 0xF;   /* 4-bit 2's complement */ }
+                return value;
+            }}),
             [HID.Report_Global_Item_Tag.Unit]: new Parser().endianess(Parser.Endianness.little).uint32('unit'),
             [HID.Report_Global_Item_Tag.Report_Size]: sized_uint('report_size'),
             [HID.Report_Global_Item_Tag.Report_ID]: new Parser().uint8('report_ID'),
@@ -201,4 +206,23 @@ export let HID_descriptor = new Parser()
         type: 'uint8',
         readUntil: 'eof',
         assert: (array: Array<number>) => (array.length === 0)
+    });
+
+export let languages_string_descriptor = new Parser()
+    .endianess(Parser.Endianness.little)
+    .uint8('length')
+    .uint8('type', {assert: USB.Descriptor_Types.STRING})
+    .array('LANGID', {
+        type: 'uint16',
+        lengthInBytes: function() {return <number>this.length - 2}
+    });
+
+export let string_descriptor = new Parser()
+    .endianess(Parser.Endianness.little)
+    .uint8('length')
+    .uint8('type', {assert: USB.Descriptor_Types.STRING})
+    .string('string', {
+        encoding: 'utf16',
+        length: function() {return <number>this.length - 2},
+        stripNull: true,
     });

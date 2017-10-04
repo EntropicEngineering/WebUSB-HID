@@ -6,14 +6,14 @@ To be written up properly later.
 Device acts like a normal HID class device, except Vendor class type in Interface descriptor.
 
 Device defines WebUSB BOS platform descriptor.
- (Because it's part of the WebUSB spec, I guess.
- Chrome doesn't care right now, not sure if it will in the future.)
+(Because it's part of the WebUSB spec, I guess.
+Chrome doesn't care right now, not sure if it will in the future.)
 
 Device defines WebUSB-HID BOS platform descriptor.
 
 WebUSB-HID BOS platform descriptor has UUID of TBD. Additional bytes:
 * bcdVersion, 2 bytes, binary-coded-decimal version number (1.0.0)
-* Vendor Usage Page for data-type mapping (default to 0xFFAA), 2 bytes
+* Vendor Usage Page for data-type mapping (default to `0xFFAA`), 2 bytes
 * Usage ID for `Uint` (default `0x0001`), 2 bytes
     * Valid Report Sizes for Usage: 8, 16, 32, 64
 * Usage ID for `int`(default `0x0002`), 2 bytes
@@ -23,123 +23,123 @@ WebUSB-HID BOS platform descriptor has UUID of TBD. Additional bytes:
 * Usage ID for bit field (default `0x0004`), 2 bytes
     * Valid Report Sizes for Usage: any
 * Usage ID for `utf8` (default `0x0005`), 2 bytes
-* Usage ID for Report Data type of `Array` (default `0x0006`), 2 bytes
+* Usage ID for report data type of `Object` (default `0x0006`), 2 bytes
     * Only valid when applied to (declared before) Collection item with Report type.
-* Usage ID for Report Data type of `Object` (default `0x0007`), 2 bytes
-    * Only valid when applied to (declared before) Collection item with Report type.
+* Usage ID for report data type of `Object` (default `0x0006`), 2 bytes
+    * Only valid when applied to (declared before) Collection item with Logical type.
 
 Logical Minimum & Maximum are ignored because they cannot specify
- Uint32 or 64, or Floats. (Logical Min & Max are effectively int32 values.)
+Uint32 or 64, or Floats. (Logical Min & Max are effectively int32 values.)
 
 A String Index item modifying (declared before) a Collection item of the
- Report type will be used to name the enclosed Report ID. This allows
- using the designated name instead of the Report ID in API calls.
+Report type will be used to name the enclosed Report ID. This allows
+using the designated name instead of the Report ID in API calls.
 
-Including String Index items that modify (are declared before) Data Main items
- (Input, Output, or Feature Main items) for all of the Data items in a
- particular report will cause report data to be returned as objects with
- property names given by the indicated string descriptors. If a String Index
- are not present for a given item, it will be given a numerical property
- name. If no String Indices are given, report data will be returned as an
- array. The first Data item in a Report will determine whether all subsequent
- items are named or returned as an array.
+The `Object` Usage ID is intended to modify Collections with the Report type.
+Applying the `Object` usage causes the Javascript API to return report data
+values as Javascript Objects. Additionally, any inputs to the API are expected
+to be Objects as well.
+
+The property names for the values in the returned (and input) objects are
+given by String Descriptors on the device, and are indicated by modifying
+the Data Main item (Input, Output, or Feature Main items) with the String
+Index for the appropriate String Descriptor. If a String Index are not
+present for a given Data item, it will be given a numerical property name.
 
 Example WebUSB-HID Report Descriptor:
-```
-Usage Page (WebUSB_HID vendor page, default of 0xFFAA)
-Usage ID (0x00)             /* Ignored, but required by HID */
+```c
+Usage_Page (WebUSB_HID_vendor_page /* default of 0xFFAA */)
+Usage_ID (0x00)             /* Ignored, but required by HID */
 Collection (Application)
 
-    String Index (4)        /* u'timestamp' */
-    Usage ID (Array type, default of 0x0006)
+    String_Index (4)        /* u'timestamp' */
     Collection (Report)
-        Report ID (1)
-        Usage ID (Uint, default of 0x0001)
-        Report Size (64)
-        Report Count (1)    /* 1x Uint64 */
+        Report_ID (1)
+        Usage_ID (Uint /* default of 0x0001 */)
+        Report_Size (64)
+        Report_Count (1)    /* 1x Uint64 */
         Output (Variable | Volatile)
-    End Collection
+    End_Collection
 
-    String Index (5)        /* u'status', sent as a response to 'timestamp' */
+    String_Index (5)        /* u'status', sent as a response to 'timestamp' */
                             /* when device is ready, or on hardware error. */
-    Usage ID (Object type, default of 0x0007)
+    Usage_ID (Object /* default of 0x0006 */)
     Collection (Report)
-        Report ID (1)       /* Same Report ID as 'timestamp', but this is an Input */
-        String Index (4)    /* u'timestamp' */
-        Usage ID (Uint)
-        Report Size (64)
-        Report Count (1)
+        Report_ID (1)       /* Same Report ID as 'timestamp', but this is an Input */
+        String_Index (4)    /* u'timestamp' */
+        Usage_ID (Uint)
+        Report_Size (64)
+        Report_Count (1)
         Input (Variable)    /* 1x Uint64 */
-        String Index (6)    /* u'serial_number' */
-        Usage ID (Uint)     /* Unfortunately, this needs to be re-declared every time */
-        Report Size (32)
-        Report Count (1)
+        String_Index (6)    /* u'serial_number' */
+        Usage_ID (Uint)     /* Unfortunately, this needs to be re-declared every time */
+        Report_Size (32)
+        Report_Count (1)
         Input (Variable)    /* 1x Uint32 */
-        String Index (5)    /* u'status */
-        Usage ID (Uint)
-        Report Size (8)
-        Report Count (4)    /* 4x Uint8 */
-        Input (Variable | Buffered Bytes)
+        String_Index (5)    /* u'status */
+        Usage_ID (Uint)
+        Report_Size (8)
+        Report_Count (4)    /* 4x Uint8 */
+        Input (Variable | Buffered_Bytes)
         /* Whole input report is Uint64, Uint32, 4x Uint8 */
-    End Collection
+    End_Collection
 
-    String Index (7)        /* u'config' */
-    Usage ID (Object type)
+    String_Index (7)        /* u'config' */
+    Usage_ID (Object)
     Collection (Report)
-        Report ID (2)
-        String Index (8)    /* u'timeout' */
-        Usage ID (Uint)
-        Report Size (64)
-        Report Count (1)
+        Report_ID (2)
+        String_Index (8)    /* u'timeout' */
+        Usage_ID (Uint)
+        Report_Size (64)
+        Report_Count (1)
         Feature (Variable | Volatile)
-        String Index (9)    /* u'threshold' */
-        Usage ID (Uint)
-        Report Size (16)
-        Report Count (1)
+        String_Index (9)    /* u'threshold' */
+        Usage_ID (Uint)
+        Report_Size (16)
+        Report_Count (1)
         Feature (Variable | Volatile)
-        String Index (10)   /* u'item_order' */
-        Usage ID (Uint)
-        Report Size (8)
-        Report Count (10)
+        String_Index (10)   /* u'item_order' */
+        Usage_ID (Uint)
+        Report_Size (8)
+        Report_Count (10)
         Feature (Variable | Volatile)
-    End Collection
+    End_Collection
 
-    String Index (11)       /* u'event' */
-    Usage ID (Object type)
+    String_Index (11)       /* u'event' */
+    Usage_ID (Object)
     Collection (Report)
-        Report ID (17)
-        String Index (4)    /* u'timestamp' */
-        Usage ID (Uint)
-        Report Size (64)
-        Report Count (1)
+        Report_ID (17)
+        String_Index (4)    /* u'timestamp' */
+        Usage_ID (Uint)
+        Report_Size (64)
+        Report_Count (1)
         Input (Variable)
-        String Index (11)   /* u'event' */
-        Usage ID (int, default of 0x0002)
-        Report Size (8)
-        Report Count (1)
+        String_Index (11)   /* u'event' */
+        Usage_ID (int /* default of 0x0002 */)
+        Report_Size (8)
+        Report_Count (1)
         Input (Variable)
-    End Collection
+    End_Collection
 
-    String Index (42)       /* u'raw_values' */
-    Usage ID (Array type)   /* Arrays ignore any String Indices on Data items in Array type. */
+    String_Index (42)       /* u'raw_values' */
     Collection (Report)
-        Report ID (0x45)
+        Report_ID (0x45)
         /* Output report of 1x Uint8 */
-        Usage ID (Uint)
-        Report Size (8)
-        Report Count (1)
+        Usage_ID (Uint)
+        Report_Size (8)
+        Report_Count (1)
         Output (Variable | Volatile)
         /* Input report of 10x Uint16, 10x Uint8 */
-        Usage ID (Uint)
-        Report Size (16)
-        Report Count (10)
-        Input (Variable | Buffered Bytes)
-        Usage ID (Uint)
-        Report Size (8)
-        Report Count (10)   /* Technically redundant, but explicit is better than implicit. */
-        Input (Variable | Buffered Bytes)
-    End Collection
-End Collection
+        Usage_ID (Uint)
+        Report_Size (16)
+        Report_Count (10)
+        Input (Variable | Buffered_Bytes)
+        Usage_ID (Uint)
+        Report_Size (8)
+        Report_Count (10)   /* Technically redundant, but explicit is better than implicit. */
+        Input (Variable | Buffered_Bytes)
+    End_Collection
+End_Collection
 ```
 Javascript API:
 ```javascript

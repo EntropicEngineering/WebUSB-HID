@@ -14,7 +14,7 @@ export var Report_Item_Type;
     Report_Item_Type[Report_Item_Type["Main"] = 0] = "Main";
     Report_Item_Type[Report_Item_Type["Global"] = 1] = "Global";
     Report_Item_Type[Report_Item_Type["Local"] = 2] = "Local";
-    Report_Item_Type[Report_Item_Type["Reserved"] = 3] = "Reserved";
+    /* Reserved = 0b11 */
 })(Report_Item_Type || (Report_Item_Type = {}));
 export var Report_Main_Item_Tag;
 (function (Report_Main_Item_Tag) {

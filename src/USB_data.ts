@@ -1,5 +1,5 @@
 
-export enum Descriptor_Types {
+export const enum Descriptor_Types {
     DEVICE                  = 1,
     CONFIGURATION           = 2,
     STRING                  = 3,
@@ -15,7 +15,7 @@ export enum Descriptor_Types {
     DEVICE_CAPABILITY       = 16,
 }
 
-export enum Request_Type {
+export const enum Request_Type {
     GET_STATUS              = 0,
     CLEAR_FEATURE           = 1,
     /* Reserved             = 2, */

@@ -20,19 +20,19 @@ let BCD_version = new Parser()
 /* HID Report Parsers */
 
 let input_ouput_feature_size_1 = new Parser()
-    .bit1('data_Vs_constant')
-    .bit1('array_Vs_variable')
-    .bit1('absolute_Vs_relative')
-    .bit1('no_wrap_Vs_wrap')
-    .bit1('linear_Vs_non_linear')
-    .bit1('preferred_state_Vs_no_preferred')
-    .bit1('no_null_position_Vs_null_state')
-    .bit1('not_volitile_Vs_volitie');
+    .bit1('data_or_constant')
+    .bit1('array_or_variable')
+    .bit1('absolute_or_relative')
+    .bit1('no_wrap_or_wrap')
+    .bit1('linear_or_non_linear')
+    .bit1('preferred_state_or_no_preferred')
+    .bit1('no_null_position_or_null_state')
+    .bit1('not_volitile_or_volitie');
 // .uint8('byte0');
 
 let input_output_feature_size_2 = new Parser()
     .nest('', {type: input_ouput_feature_size_1})
-    .bit1('bit_field_Vs_buffered_bytes');
+    .bit1('bit_field_or_buffered_bytes');
 /* Everything following in byte is reserved and should be 0, thus it's ignored. */
 
 let input_output_feature_size_4 = new Parser()
@@ -60,7 +60,7 @@ let collection = new Parser()
             .uint8('collection', {assert: (value: number) => ((value < 0x07) || (value > 0x7F))})
     });
 
-let usage = (default_global = true, local_item = "usage_ID"): Parser => new Parser()
+let usage = (default_global = true, local_item = "usage_id"): Parser => new Parser()
     .choice('', {
         // tag: function() {return this.size as number},
         tag: 'size',
@@ -128,7 +128,7 @@ let global_item = new Parser()
             }}),
             [HID.Report_Global_Item_Tag.Unit]: new Parser().endianess(Parser.Endianness.little).uint32('unit'),
             [HID.Report_Global_Item_Tag.Report_Size]: sized_uint('report_size'),
-            [HID.Report_Global_Item_Tag.Report_ID]: new Parser().uint8('report_ID'),
+            [HID.Report_Global_Item_Tag.Report_ID]: new Parser().uint8('report_id'),
             [HID.Report_Global_Item_Tag.Report_Count]: sized_uint('report_count'),
             [HID.Report_Global_Item_Tag.Push]: null_parser,
             [HID.Report_Global_Item_Tag.Pop]: null_parser
@@ -213,7 +213,7 @@ export let languages_string_descriptor = new Parser()
     .uint8('length')
     .uint8('type', {assert: USB.Descriptor_Types.STRING})
     .array('LANGID', {
-        type: 'uint16',
+        type: 'uint16le',
         lengthInBytes: function() {return <number>this.length - 2}
     });
 
@@ -222,7 +222,7 @@ export let string_descriptor = new Parser()
     .uint8('length')
     .uint8('type', {assert: USB.Descriptor_Types.STRING})
     .string('string', {
-        encoding: 'utf16',
+        encoding: 'utf16le',
         length: function() {return <number>this.length - 2},
         stripNull: true,
     });

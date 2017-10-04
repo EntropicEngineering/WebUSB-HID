@@ -1,6 +1,7 @@
 /* Typescript imports. Comment out in generated js file. */
 // import Parser from 'binary-parser';
 // import * as HID from './HID_data';
+// import * as USB from './USB_data';
 // /* Browser imports. Uncomment in generated js file. */
 import _Parser from './wrapped/binary_parser.js';   let Parser = _Parser.Parser;
 /* Utility Parsers */
@@ -12,18 +13,18 @@ let BCD_version = new Parser()
     .bit4('patch');
 /* HID Report Parsers */
 let input_ouput_feature_size_1 = new Parser()
-    .bit1('data_Vs_constant')
-    .bit1('array_Vs_variable')
-    .bit1('absolute_Vs_relative')
-    .bit1('no_wrap_Vs_wrap')
-    .bit1('linear_Vs_non_linear')
-    .bit1('preferred_state_Vs_no_preferred')
-    .bit1('no_null_position_Vs_null_state')
-    .bit1('not_volitile_Vs_volitie');
+    .bit1('data_or_constant')
+    .bit1('array_or_variable')
+    .bit1('absolute_or_relative')
+    .bit1('no_wrap_or_wrap')
+    .bit1('linear_or_non_linear')
+    .bit1('preferred_state_or_no_preferred')
+    .bit1('no_null_position_or_null_state')
+    .bit1('not_volitile_or_volitie');
 // .uint8('byte0');
 let input_output_feature_size_2 = new Parser()
     .nest('', { type: input_ouput_feature_size_1 })
-    .bit1('bit_field_Vs_buffered_bytes');
+    .bit1('bit_field_or_buffered_bytes');
 /* Everything following in byte is reserved and should be 0, thus it's ignored. */
 let input_output_feature_size_4 = new Parser()
     .nest('', { type: input_output_feature_size_2 })
@@ -47,7 +48,7 @@ let collection = new Parser()
     defaultChoice: new Parser()
         .uint8('collection', { assert: (value) => ((value < 0x07) || (value > 0x7F)) })
 });
-let usage = (default_global = true, local_item = "usage_ID") => new Parser()
+let usage = (default_global = true, local_item = "usage_id") => new Parser()
     .choice('', {
     // tag: function() {return this.size as number},
     tag: 'size',
@@ -104,10 +105,16 @@ let global_item = new Parser()
         [3 /* Physical_Minimum */]: sized_int('physical_minimum'),
         [4 /* Physical_Maximum */]: sized_int('physical_maximum'),
         /* Parsing unit information left as an exercise to the reader. */
-        [5 /* Unit_Exponent */]: new Parser().uint8('unit_exponent'),
+        [5 /* Unit_Exponent */]: new Parser().uint8('unit_exponent', { formatter: (value) => {
+                value &= 0xF; /* Only the first nibble is used */
+                if (value > 7) {
+                    value -= 0xF; /* 4-bit 2's complement */
+                }
+                return value;
+            } }),
         [6 /* Unit */]: new Parser().endianess("little" /* little */).uint32('unit'),
         [7 /* Report_Size */]: sized_uint('report_size'),
-        [8 /* Report_ID */]: new Parser().uint8('report_ID'),
+        [8 /* Report_ID */]: new Parser().uint8('report_id'),
         [9 /* Report_Count */]: sized_uint('report_count'),
         [10 /* Push */]: null_parser,
         [11 /* Pop */]: null_parser
@@ -137,9 +144,9 @@ let short_item = new Parser()
     // tag: function() {return this.tag as number},
     tag: 'type',
     choices: {
-        0: main_item,
-        1: global_item,
-        2: local_item
+        [0 /* Main */]: main_item,
+        [1 /* Global */]: global_item,
+        [2 /* Local */]: local_item
     }
 });
 let long_item = new Parser()
@@ -179,5 +186,22 @@ export let HID_descriptor = new Parser()
     type: 'uint8',
     readUntil: 'eof',
     assert: (array) => (array.length === 0)
+});
+export let languages_string_descriptor = new Parser()
+    .endianess("little" /* little */)
+    .uint8('length')
+    .uint8('type', { assert: 3 /* STRING */ })
+    .array('LANGID', {
+    type: 'uint16le',
+    lengthInBytes: function () { return this.length - 2; }
+});
+export let string_descriptor = new Parser()
+    .endianess("little" /* little */)
+    .uint8('length')
+    .uint8('type', { assert: 3 /* STRING */ })
+    .string('string', {
+    encoding: 'utf16le',
+    length: function () { return this.length - 2; },
+    stripNull: true,
 });
 //# sourceMappingURL=parsers.js.map

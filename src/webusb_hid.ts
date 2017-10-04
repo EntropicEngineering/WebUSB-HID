@@ -16,7 +16,7 @@ import {HID_descriptor, item, languages_string_descriptor, string_descriptor} fr
 /* Browser imports. Uncomment in generated js file. */
 // import _Parser from './wrapped/binary_parser.js';   let Parser = _Parser.Parser;
 // import _Buffer from './wrapped/buffer.js';  let Buffer = _Buffer.Buffer;
-// import {HID_descriptor, item} from './parsers.js';
+// import {HID_descriptor, item, languages_string_descriptor, string_descriptor} from './parsers.js';
 
 /* binary-parser expects Buffer global object. */
 window.Buffer = Buffer;
@@ -38,8 +38,12 @@ Map.prototype.update = function(...sources) {
     return Map.assign(this, ...sources);
 };
 
-function hex(buffer: ArrayBuffer) {
-    return Array.from(new Uint8Array(buffer), arg => "0x" + arg.toString(16).padStart(2, "0")).join(", ")
+function hex(value: number) {
+    return "0x" + value.toString(16).padStart(2, "0")
+}
+
+function hex_buffer(buffer: ArrayBuffer) {
+    return Array.from(new Uint8Array(buffer), hex).join(", ")
 }
 
 class USBError extends Error {
@@ -62,7 +66,7 @@ export default class Device {
     }
 
     private _interface_id = 0;
-    private _configuration_id = 0;
+    private _configuration_id = 1;
     readonly _filters: WebUSB.USBDeviceFilter[];
     protected webusb_device: WebUSB.USBDevice | undefined = undefined;
     private _HID_descriptors: Array<Parser.Parsed> = [];
@@ -86,8 +90,10 @@ export default class Device {
         }
     }
 
-    get_report_id(report: number | string, report_type: HID.Request_Report_Type): number {
-        if (typeof report === "number" && this._reports[this._interface_id].has(report)) {
+    get_report_id(report: number | string | null | undefined, report_type: HID.Request_Report_Type): number {
+        if (report === null || report === undefined) {
+            return 0
+        } else if (typeof report === "number" && this._reports[this._interface_id].has(report)) {
             return report;
         } else if (typeof report === "string" && this._report_names[this._interface_id].get(report_type)!.has(report)) {
             return this._report_names[this._interface_id].get(report_type)!.get(report) as number;
@@ -101,33 +107,24 @@ export default class Device {
         if (index < 0) {throw new Error("Invalid string descriptor index")}
         if (this._string_descriptors[this._interface_id] === undefined) {
             this._string_descriptors[this._interface_id] = [];
-            await this.get_string_descriptor(0);
+            await this.get_string_descriptor(0, 0);
         }
         if (this._string_descriptors[this._interface_id][index] !== undefined) {
             return this._string_descriptors[this._interface_id][index];
         }
-        if (language_id !== undefined && !((<Array<number>>this._string_descriptors[this._interface_id][0]).includes(language_id))) {
-            throw new Error("Unsupported language id: " + language_id);
+        if (index !== 0 && language_id !== undefined && !((<Array<number>>this._string_descriptors[this._interface_id][0]).includes(language_id))) {
+            throw new Error("Unsupported language id: " + hex(language_id));
         }
-        let length = 3;
+        if (index !== 0 && language_id === undefined) {
+            language_id = this._string_descriptors[this._interface_id][0 /* String Descriptor index */][0 /* First LANGID */] as number;
+        }
         let data = Device.verify_transfer(await this.webusb_device!.controlTransferIn({
             requestType: WebUSB.USBRequestType.standard,
             recipient: WebUSB.USBRecipient.device,
             request: USB.Request_Type.GET_DESCRIPTOR,
             value: USB.Descriptor_Types.STRING * 256 + index,
-            index: language_id ? language_id : 0
-        }, length));
-        let returned_length = data.getUint8(0);
-        if (returned_length > length) {
-            length = returned_length;
-            data = Device.verify_transfer(await this.webusb_device!.controlTransferIn({
-                requestType: WebUSB.USBRequestType.standard,
-                recipient: WebUSB.USBRecipient.device,
-                request: USB.Request_Type.GET_DESCRIPTOR,
-                value: USB.Descriptor_Types.STRING * 256 + index,
-                index: language_id ? language_id : 0
-            }, length));
-        }
+            index: language_id as number,
+        }, 255));
         let result: string | Array<number>;
         if (index === 0) {
             result = <Array<number>>languages_string_descriptor.parse(Buffer.from(data.buffer)).LANGID;
@@ -153,7 +150,7 @@ export default class Device {
             }
 
             if (data.byteLength < length) {
-                throw new USBError("Invalid HID descriptor length: " + hex(data.buffer), WebUSB.USBTransferStatus.ok);
+                throw new USBError("Invalid HID descriptor length: " + hex_buffer(data.buffer), WebUSB.USBTransferStatus.ok);
             }
 
             this._HID_descriptors[this._interface_id] = this.HID_descriptor_parser(length).parse(Buffer.from(data.buffer));
@@ -184,7 +181,7 @@ export default class Device {
             let data = await Device.get_HID_class_descriptor(this.webusb_device!, HID.Class_Descriptors.Report, 0, length, this._interface_id, HID.Descriptor_Request.GET);
 
             if (data.byteLength !== length) {
-                throw new USBError("Invalid HID descriptor length: " + hex(data.buffer), WebUSB.USBTransferStatus.ok);
+                throw new USBError("Invalid HID descriptor length: " + hex_buffer(data.buffer), WebUSB.USBTransferStatus.ok);
             }
 
             this._report_descriptors[this._interface_id] = this.report_descriptor_parser(length).parse(Buffer.from(data.buffer));
@@ -221,7 +218,7 @@ export default class Device {
             let data = await Device.get_HID_class_descriptor(this.webusb_device!, HID.Class_Descriptors.Physical, index, length, this._interface_id, HID.Descriptor_Request.GET);
 
             if (data.byteLength !== length) {
-                throw new USBError("Invalid HID descriptor length: " + hex(data.buffer), WebUSB.USBTransferStatus.ok);
+                throw new USBError("Invalid HID descriptor length: " + hex_buffer(data.buffer), WebUSB.USBTransferStatus.ok);
             }
 
             this.physical_descriptor[index] = this.physical_descriptor_parser(length).parse(Buffer.from(data.buffer));
@@ -242,15 +239,18 @@ export default class Device {
                 [HID.Request_Report_Type.Feature, new Map()],
             ]);
 
-            const global_stack: Array<Map<string, Parser.Data>> = [];
+            type Stack = Array<Map<string, Parser.Data>>
 
-            let usage_stack: Array<Map<string, Parser.Data> | Array<Map<string, Parser.Data>>> = [];
+            const global_stack: Stack = [];
 
-            let delimiter = false;
+            let empty_local_state = () => new Map<string, Stack | Parser.Data>([['usage_stack', []], ['string_stack', []], ['designator_stack', []]]);
+            let delimiter_stack: Stack = [];
+
+            let delimited = false;
 
             const state = new Map([
                 [HID.Report_Item_Type.Global, new Map()],
-                [HID.Report_Item_Type.Local, new Map()],
+                [HID.Report_Item_Type.Local, empty_local_state()],
                 [HID.Report_Item_Type.Main, new Map()],
             ]);
 
@@ -291,44 +291,45 @@ export default class Device {
                     case HID.Report_Item_Type.Local:
                         switch (item.tag as HID.Report_Local_Item_Tag) {
                             case HID.Report_Local_Item_Tag.Usage:
-                                if (delimiter) {
-                                    (<Array<Map<string, Parser.Data>>>usage_stack[usage_stack.length - 1]).push(new Map(Object.entries(item).slice(3)));
-                                } else {
-                                    usage_stack.push(new Map(Object.entries(item).slice(3)));
-                                }
+                                state.get(HID.Report_Item_Type.Local)!.get('usage_stack').push(new Map(Object.entries(item).slice(3)));
+                                break;
+                            case HID.Report_Local_Item_Tag.Designator_Index:
+                                state.get(HID.Report_Item_Type.Local)!.get('designator_stack').push(new Map(Object.entries(item).slice(3)));
                                 break;
                             case HID.Report_Local_Item_Tag.Usage_Minimum:
                             case HID.Report_Local_Item_Tag.Usage_Maximum:
-                            case HID.Report_Local_Item_Tag.Designator_Index:
                             case HID.Report_Local_Item_Tag.Designator_Minimum:
                             case HID.Report_Local_Item_Tag.Designator_Maximum:
+                            case HID.Report_Local_Item_Tag.String_Minimum:
+                            case HID.Report_Local_Item_Tag.String_Maximum:
                                 add_raw_tags(item);
                                 break;
                             case HID.Report_Local_Item_Tag.String_Index:
-                                break;
-                            case HID.Report_Local_Item_Tag.String_Minimum:
-                                break;
-                            case HID.Report_Local_Item_Tag.String_Maximum:
+                                state.get(HID.Report_Item_Type.Local)!.get('string_stack').push(this.get_string_descriptor(<number>item.string_index));
                                 break;
                             case HID.Report_Local_Item_Tag.Delimiter:
-                                delimiter = !delimiter;
-                                if (delimiter) {
-                                    usage_stack.push([]);
-                                }
+                                let delimiter = item.delimiter as number;
+                                if (delimiter === 1 && !delimited) {  // Start of new delimiter set
+                                    delimited = true;
+                                } else if (delimiter === 0 && delimited) {   // End of delimiter set
+                                    delimiter_stack.push(state.get(HID.Report_Item_Type.Local)!);
+                                    state.set(HID.Report_Item_Type.Local, empty_local_state());
+                                    delimited = false;
+                                }   // Ignore other delimiter tags because they don't make sense.
                                 break;
                         }
                         break;
                     case HID.Report_Item_Type.Main:
                         switch (item.tag as HID.Report_Main_Item_Tag) {
+                            case HID.Report_Main_Item_Tag.Collection:
+                                break;
+                            case HID.Report_Main_Item_Tag.End_Collection:
+                                break;
                             case HID.Report_Main_Item_Tag.Input:
                                 break;
                             case HID.Report_Main_Item_Tag.Output:
                                 break;
                             case HID.Report_Main_Item_Tag.Feature:
-                                break;
-                            case HID.Report_Main_Item_Tag.Collection:
-                                break;
-                            case HID.Report_Main_Item_Tag.End_Collection:
                                 break;
                         }
                         break;
@@ -414,6 +415,10 @@ export default class Device {
         return this._reports[this._interface_id];
     }
 
+    get report_names() {
+        return this._report_names[this._interface_id];
+    }
+
     /******************
      * Public Methods *
      ******************/
@@ -454,12 +459,12 @@ export default class Device {
         throw new Error("Not Implemented");
     }
 
-    async send(report: number | string, ...data: Array<number | string>) {
+    async send(report: number | string | null, ...data: Array<number | string>) {
         this.verify_connection();
         throw new Error("Not Implemented");
     }
 
-    async get_feature(report: number | string) {
+    async get_feature(report: number | string | null | undefined) {
         this.verify_connection();
         let report_id = this.get_report_id(report, HID.Request_Report_Type.Feature);
         let length = <number>this.reports.get(report_id)!["length"];
@@ -475,7 +480,7 @@ export default class Device {
         return report_data
     }
 
-    async set_feature(report: number | string, ...data: Array<number | string>) {
+    async set_feature(report: number | string | null, ...data: Array<number | string>) {
         this.verify_connection();
         throw new Error("Not Implemented");
     }

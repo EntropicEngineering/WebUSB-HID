@@ -40,7 +40,7 @@ function hex_buffer(buffer) {
 class USBError extends Error {
     constructor(message, status) {
         super(message);
-        this.name = 'USBError';
+        this.name = 'USBTransferError';
         this.status = status;
     }
 }

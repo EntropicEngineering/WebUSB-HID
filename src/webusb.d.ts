@@ -88,24 +88,21 @@ declare module WebUSB {
      *
      * https://wicg.github.io/webusb/#transfers
      */
-    export const enum USBRequestType {
-        standard = 'standard',
-        class = 'class',
-        vendor = 'vendor'
-    }
+    export type USBRequestType =
+        'standard' |
+        'class' |
+        'vendor'
 
-    export const enum USBRecipient {
-        device = 'device',
-        interface = 'interface',
-        endpoint = 'endpoint',
-        other = 'other'
-    }
+    export type USBRecipient =
+        'device' |
+        'interface' |
+        'endpoint' |
+        'other'
 
-    export const enum USBTransferStatus {
-        ok = 'ok',
-        stall = 'stall',
-        babble = 'babble'
-    }
+    export type USBTransferStatus =
+        'ok' |
+        'stall' |
+        'babble'
 
     export interface USBControlTransferParameters {
         requestType: USBRequestType;
@@ -187,16 +184,14 @@ declare module WebUSB {
      *
      * https://wicg.github.io/webusb/#endpoints
      */
-    export const enum USBDirection {
-        in = 'in',
-        out = 'out'
-    }
+    export type USBDirection =
+        'in' |
+        'out'
 
-    export const enum USBEndpointType {
-        bulk = 'bulk',
-        interrupt = 'interrupt',
-        isochronous = 'isochronous'
-    }
+    export type USBEndpointType =
+        'bulk' |
+        'interrupt' |
+        'isochronous'
 
     export interface USBEndpoint {
         new (alternate: USBAlternateInterface, endpointNumber: number, direction: USBDirection): USBEndpoint;
@@ -232,33 +227,31 @@ declare module WebUSB {
     interface PermissionDescriptor {
         name: PermissionName;
     }
-    const enum PermissionName {
-        "geolocation",
-        "notifications",
-        "push",
-        "midi",
-        "camera",
-        "microphone",
-        "speaker",
-        "device-info",
-        "background-sync",
-        "bluetooth",
-        "persistent-storage",
-        "ambient-light-sensor",
-        "accelerometer",
-        "gyroscope",
-        "magnetometer",
-        "clipboard",
-    }
+    type PermissionName =
+        "geolocation" |
+        "notifications" |
+        "push" |
+        "midi" |
+        "camera" |
+        "microphone" |
+        "speaker" |
+        "device-info" |
+        "background-sync" |
+        "bluetooth" |
+        "persistent-storage" |
+        "ambient-light-sensor" |
+        "accelerometer" |
+        "gyroscope" |
+        "magnetometer" |
+        "clipboard"
     interface PermissionStatus extends EventTarget {
         readonly state: PermissionState;
         onchange: EventHandler;
     }
-    const enum PermissionState {
-        granted = 'granted',
-        denied = 'denied',
-        prompt = 'prompt',
-    }
+    type PermissionState =
+        'granted' |
+        'denied' |
+        'prompt'
 }
 
 interface Navigator {

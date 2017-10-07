@@ -14,6 +14,7 @@ interface MapConstructor {
 
 interface Map<K, V> {
     update(...sources: Array<Map<any, any> | Array<[any, any]>>): Map<K, V>
+    asObject(): any
 }
 
 interface Navigator {

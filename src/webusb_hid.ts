@@ -5,17 +5,17 @@
  */
 
 /* Typescript imports. Comment out in generated js file. */
+import * as ParserType from 'typings/binary_parser';
 /// <reference path="../typings/binary_parser.d.ts"/>
+import {Parser} from '../dist/wrapped/binary_parser.js';
+// let Parser: Parser = _Parser.Parser;
 /// <reference path="../typings/buffer.d.ts"/>
-import Parser from 'binary-parser';
-import Buffer from 'buffer';
+import {Buffer} from '../dist/wrapped/buffer.js';
 import * as HID from './HID_data';
 import * as USB from './USB_data';
-import {BOS_descriptor, HID_descriptor, item, languages_string_descriptor, string_descriptor, USAGE} from './parsers';
+import {BOS_descriptor, HID_descriptor, item, languages_string_descriptor, string_descriptor, USAGE} from '../dist/parsers.js';
 
 /* Browser imports. Uncomment in generated js file. */
-// import _Parser from './wrapped/binary_parser.js';   let Parser = _Parser.Parser;
-// import _Buffer from './wrapped/buffer.js';  let Buffer = _Buffer.Buffer;
 // import {BOS_descriptor, HID_descriptor, item, languages_string_descriptor, string_descriptor} from './parsers.js';
 
 /* binary-parser expects Buffer global object. */
@@ -90,7 +90,7 @@ export default class Device {
     private _configuration_id = 1;
     readonly _filters: WebUSB.USBDeviceFilter[];
     protected webusb_device: WebUSB.USBDevice | undefined = undefined;
-    private _HID_descriptors: Map<number, Parser.Parsed> = new Map();
+    private _HID_descriptors: Map<number, ParserType.Parsed> = new Map();
     private _BOS_descriptors: Map<number, Parser.Parsed> = new Map();
     private _report_descriptors: Map<number, Parser.Parsed> = new Map();
     private _physical_descriptors: Map<number, Array<Parser.Parsed>> = new Map();
@@ -184,7 +184,7 @@ export default class Device {
                 value: USB.Descriptor_Type.BOS * 256,
                 index: 0
             }, 5 /* BOS header size */));
-
+            console.log(hex_buffer(data.buffer));
             let total_length = data.getUint16(2, true);
             data = Device.verify_transfer(await this.webusb_device!.controlTransferIn({
                 requestType: "standard",
@@ -335,6 +335,9 @@ export default class Device {
                 }
             }
             const usage = Object.freeze(usage_map.asObject());
+
+            // TODO: FIXME
+            if (usage) return usage;
 
             const reports: Reports = new Map([
                 [HID.Request_Report_Type.Input, new Map()],

@@ -4,6 +4,9 @@
  * USB HID utility for WebUSB.
  */
 
+import Parser from 'typings/binary_parser';
+import Buffer from 'typings/buffer';
+
 interface String {
     padStart(targetLength: number, padString?: string): string;
 }
@@ -22,5 +25,7 @@ interface Navigator {
 }
 
 interface Window {
-    Buffer: any;
+    Buffer: Buffer;
+    Parser: Parser;
+    Platform_UUIDs: {[platform: string]: Array<number>}
 }

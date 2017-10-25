@@ -1,16 +1,23 @@
 
 /* Typescript imports. Comment out in generated js file. */
-import Parser from 'binary-parser';
+import _Parser from '../dist/wrapped/binary_parser.js';
 import * as HID from './HID_data';
 import * as USB from './USB_data';
+
+let Parser = _Parser.Parser;
 
 /* Browser imports. Uncomment in generated js file. */
 // import _Parser from './wrapped/binary_parser.js';   let Parser = _Parser.Parser;
 
-/* python -c "import uuid;print(', '.join(map(hex, uuid.UUID('3408b638-09a9-47a0-8bfd-a0768815b665').bytes_le)))" */
-const WebUSB_UUID = [0x38, 0xb6, 0x8, 0x34, 0xa9, 0x9, 0xa0, 0x47, 0x8b, 0xfd, 0xa0, 0x76, 0x88, 0x15, 0xb6, 0x65];
-/* python -c "import uuid;print(', '.join(map(hex, uuid.UUID('a8adf97c-6a20-48e4-a97c-79978eec00c7').bytes_le)))" */
-const WebUSB_HID_UUID = [0x7c, 0xf9, 0xad, 0xa8, 0x20, 0x6a, 0xe4, 0x48, 0xa9, 0x7c, 0x79, 0x97, 0x8e, 0xec, 0x0, 0xc7];
+export const Platform_UUIDs = {
+    /* python -c "import uuid;print(', '.join(map(hex, uuid.UUID('3408b638-09a9-47a0-8bfd-a0768815b665').bytes_le)))" */
+    WebUSB: [0x38, 0xb6, 0x8, 0x34, 0xa9, 0x9, 0xa0, 0x47, 0x8b, 0xfd, 0xa0, 0x76, 0x88, 0x15, 0xb6, 0x65],
+    /* python -c "import uuid;print(', '.join(map(hex, uuid.UUID('a8adf97c-6a20-48e4-a97c-79978eec00c7').bytes_le)))" */
+    WebUSB_HID: [0x7c, 0xf9, 0xad, 0xa8, 0x20, 0x6a, 0xe4, 0x48, 0xa9, 0x7c, 0x79, 0x97, 0x8e, 0xec, 0x0, 0xc7]
+};
+
+/* Because binary-parser uses 'eval' shit, this needs to be in the global namespace */
+window.Platform_UUIDs = Platform_UUIDs;
 
 /* Utility Parsers */
 
@@ -271,7 +278,7 @@ let platform_capability = new Parser()
     })
     .choice('', {
         tag: function () {  /* WTF, javascript, [0, 1] === [0, 1] is false?! */
-            for (let [index, uuid] of [WebUSB_UUID, WebUSB_HID_UUID].entries()) {
+            for (let [index, uuid] of [Platform_UUIDs.WebUSB, Platform_UUIDs.WebUSB_HID].entries()) {
                 /* Check for match, because Javascript Arrays can't figure out how to do equality checks */
                 if (uuid.every((v, i) => (<Array<number>>this.uuid)[i] === v))
                     return index;

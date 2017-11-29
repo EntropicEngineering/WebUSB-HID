@@ -1,10 +1,9 @@
 
 /* Typescript imports. Comment out in generated js file. */
-import _Parser from '../dist/wrapped/binary_parser.js';
 import * as HID from './HID_data';
 import * as USB from './USB_data';
 
-let Parser = _Parser.Parser;
+import {Byte_Map, Bits, Uint8, Branch} from 'declarative-binary-serialization';
 
 /* Browser imports. Uncomment in generated js file. */
 // import _Parser from './wrapped/binary_parser.js';   let Parser = _Parser.Parser;
@@ -13,7 +12,7 @@ export const Platform_UUIDs = {
     /* python -c "import uuid;print(', '.join(map(hex, uuid.UUID('3408b638-09a9-47a0-8bfd-a0768815b665').bytes_le)))" */
     WebUSB: [0x38, 0xb6, 0x8, 0x34, 0xa9, 0x9, 0xa0, 0x47, 0x8b, 0xfd, 0xa0, 0x76, 0x88, 0x15, 0xb6, 0x65],
     /* python -c "import uuid;print(', '.join(map(hex, uuid.UUID('a8adf97c-6a20-48e4-a97c-79978eec00c7').bytes_le)))" */
-    WebUSB_HID: [0x7c, 0xf9, 0xad, 0xa8, 0x20, 0x6a, 0xe4, 0x48, 0xa9, 0x7c, 0x79, 0x97, 0x8e, 0xec, 0x0, 0xc7]
+    SimpleHID: [0x7c, 0xf9, 0xad, 0xa8, 0x20, 0x6a, 0xe4, 0x48, 0xa9, 0x7c, 0x79, 0x97, 0x8e, 0xec, 0x0, 0xc7]
 };
 
 /* Because binary-parser uses 'eval' shit, this needs to be in the global namespace */
@@ -21,26 +20,24 @@ window.Platform_UUIDs = Platform_UUIDs;
 
 /* Utility Parsers */
 
-let null_parser = new Parser().namely('null_parser');
+let null_parser = Byte_Map();
 
-let BCD_version = new Parser()
-    .endianess('little')
-    .uint8('major')
-    .bit4('minor')
-    .bit4('patch');
+let BCD_version = Byte_Map({little_endian: true})
+    .set('major', Uint8())
+    .set('minor', Bits(4))
+    .set('patch', Bits(4));
 
 /* HID Report Parsers */
 
-let input_ouput_feature_size_1 = new Parser()
-    .bit1('data_or_constant')
-    .bit1('array_or_variable')
-    .bit1('absolute_or_relative')
-    .bit1('no_wrap_or_wrap')
-    .bit1('linear_or_non_linear')
-    .bit1('preferred_state_or_no_preferred')
-    .bit1('no_null_position_or_null_state')
-    .bit1('not_volitile_or_volitie');
-// .uint8('byte0');
+let input_ouput_feature_size_1 = Byte_Map()
+    .set('data_or_constant', Bits(1))
+    .set('array_or_variable', Bits(1))
+    .set('absolute_or_relative', Bits(1))
+    .set('no_wrap_or_wrap', Bits(1))
+    .set('linear_or_nonlinear', Bits(1))
+    .set('preferred_state_or_no_preferred', Bits(1))
+    .set('no_null_position_or_null_state', Bits(1))
+    .set('not_volatile_or_volatile', Bits(1));
 
 let input_output_feature_size_2 = new Parser()
     .nest('', {type: input_ouput_feature_size_1})
@@ -278,7 +275,7 @@ let platform_capability = new Parser()
     })
     .choice('', {
         tag: function () {  /* WTF, javascript, [0, 1] === [0, 1] is false?! */
-            for (let [index, uuid] of [Platform_UUIDs.WebUSB, Platform_UUIDs.WebUSB_HID].entries()) {
+            for (let [index, uuid] of [Platform_UUIDs.WebUSB, Platform_UUIDs.SimpleHID].entries()) {
                 /* Check for match, because Javascript Arrays can't figure out how to do equality checks */
                 if (uuid.every((v, i) => (<Array<number>>this.uuid)[i] === v))
                     return index;

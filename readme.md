@@ -5,20 +5,15 @@ To be written up properly later.
 
 Device acts like a normal HID class device, except Vendor class type in Interface descriptor.
 
-Device defines WebUSB BOS platform descriptor.
-(Because it's part of the WebUSB spec, I guess.
-Chrome doesn't care right now, not sure if it will in the future.
-WebUSB-HID only cares because it uses the WebUSB `navigator.usb` API.)
-
-Device defines WebUSB-HID BOS platform descriptor (with all the normal Capability
+Device defines SimpleHID BOS platform descriptor (with all the normal Capability
 and Platform headers).
 
-WebUSB-HID BOS platform descriptor has UUID of 'a8adf97c-6a20-48e4-a97c-79978eec00c7'.
+SimpleHID BOS platform descriptor has UUID of 'a8adf97c-6a20-48e4-a97c-79978eec00c7'.
 
 CapabilityData, 20 bytes (Platform descriptor total of 40 bytes):
 * bcdVersion, 2 bytes, binary-coded-decimal version number (0.2.0)
-* Vendor Usage Page for WebUSB-HID data-type mapping (default to `0xFFAA`), 2 bytes
-* Usage ID applied to Application-type Collections to indicate WebUSB-HID compatibility, 2 bytes (default `0x0000`)
+* Vendor Usage Page for SimpleHID data-type mapping (default to `0xFFAA`), 2 bytes
+* Usage ID applied to Application-type Collections to indicate SimpleHID compatibility, 2 bytes (default `0x0000`)
 * Usage ID for `Uint`, 2 bytes (default `0x0001`)
     * Valid Report Sizes for Usage: 8, 16, 32, 64
 * Usage ID for `int`, 2 bytes (default `0x0002`)
@@ -63,10 +58,10 @@ Data items being accessed via a nested Array or Object. This can be used
 to construct arbitrarily complex objects. Best practice, however, is to
 split data between Report IDs to create additional smaller reports.
 
-Example WebUSB-HID Report Descriptor:
+Example SimpleHID Report Descriptor:
 ```c
-Usage_Page (WebUSB_HID_vendor_page /* default of 0xFFAA */)
-Usage_ID (WebUSB_HID_application_collection)    /* default of 0x0000 */
+Usage_Page (SimpleHID_vendor_page /* default of 0xFFAA */)
+Usage_ID (SimpleHID_application_collection)    /* default of 0x0000 */
 Collection (Application)
 
     /* Report ID:   1
@@ -196,7 +191,7 @@ End_Collection
 ```
 Javascript API:
 ```javascript
-let device = await navigator.hid.connect();     /* Pop-up window prompts user to select device */
+let device = await navigator.simpleHID.connect();     /* Pop-up window prompts user to select device */
 
 await device.set_feature('config', {'timeout': 42*60*100 /* ms */,
                                     'threshold': 42,

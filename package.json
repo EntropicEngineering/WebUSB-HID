@@ -1,9 +1,8 @@
 {
-  "name": "webusb-hid",
+  "name": "simple-hid",
   "version": "0.1.0",
-  "description": "HID extension to WebUSB.",
-  "main": "dist/webusb_hid.js",
-  "module": "src/webUSB_HID.js",
+  "description": "Simplified USB-HID based protocol library, designed for use with WebUSB",
+  "main": "dist/simpleHID.js",
   "scripts": {
     "build": "webpack && tsc",
     "tsc": "tsc",
@@ -12,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/EntropicEngineering/WebUSB-HID.git"
+    "url": "git+https://github.com/EntropicEngineering/SimpleHID.git"
   },
   "keywords": [
     "webusb",
@@ -21,16 +20,16 @@
   "author": "riggs",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/EntropicEngineering/WebUSB-HID/issues"
+    "url": "https://github.com/EntropicEngineering/SimpleHID/issues"
   },
-  "homepage": "https://github.com/EntropicEngineering/WebUSB-HID#readme",
+  "homepage": "https://github.com/EntropicEngineering/SimpleHID#readme",
   "devDependencies": {
-    "source-map-loader": "^0.2.1",
-    "typescript": "^2.5.2",
-    "webpack": "^3.5.5"
+    "source-map-loader": "^0.2.3",
+    "typescript": "^2.6.2",
+    "webpack": "^3.8.1"
   },
   "dependencies": {
-    "binary-parser": "^1.3.0",
-    "buffer": "^5.0.7"
+    "declarative-binary-serialization": "file:../declarative-binary-serialization",
+    "improved_map": "^1.0.1"
   }
 }

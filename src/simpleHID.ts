@@ -4,13 +4,8 @@
  * USB HID utility for WebUSB.
  */
 
+import 'improved_map';
 /* Typescript imports. Comment out in generated js file. */
-import * as ParserType from 'typings/binary_parser';
-/// <reference path="../typings/binary_parser.d.ts"/>
-import {Parser} from '../dist/wrapped/binary_parser.js';
-// let Parser: Parser = _Parser.Parser;
-/// <reference path="../typings/buffer.d.ts"/>
-import {Buffer} from '../dist/wrapped/buffer.js';
 import * as HID from './HID_data';
 import * as USB from './USB_data';
 import {BOS_descriptor, HID_descriptor, item, languages_string_descriptor, string_descriptor, USAGE} from '../dist/parsers.js';
@@ -18,33 +13,9 @@ import {BOS_descriptor, HID_descriptor, item, languages_string_descriptor, strin
 /* Browser imports. Uncomment in generated js file. */
 // import {BOS_descriptor, HID_descriptor, item, languages_string_descriptor, string_descriptor} from './parsers.js';
 
-/* binary-parser expects Buffer global object. */
-window.Buffer = Buffer;
-
 /*************
  * Utilities *
  *************/
-
-Map.assign = function(target, ...sources) {
-    for (const source of sources) {
-        for (const [key, value] of source) {
-            target.set(key, value)
-        }
-    }
-    return target;
-};
-
-Map.prototype.update = function(...sources) {
-    return Map.assign(this, ...sources);
-};
-
-Map.prototype.asObject = function () {
-    let result: any = Object.create(null);
-    for (let [key, value] of this) {
-       result[key] = value;
-    }
-    return result
-};
 
 function hex(value: number) {
     return "0x" + value.toString(16).padStart(2, "0")
@@ -642,4 +613,4 @@ export default class Device {
     }
 }
 
-navigator.hid = Device;
+navigator.simpleHID = Device;

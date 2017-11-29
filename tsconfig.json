@@ -2,7 +2,7 @@
   "compilerOptions": {
     "allowJs": true,
     "module": "es6",
-    "moduleResolution": "classic",
+    "moduleResolution": "node",
     "noImplicitAny": true,
     "noImplicitThis": true,
     "outDir": "./dist/",

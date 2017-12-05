@@ -8,10 +8,6 @@ interface String {
     padStart(targetLength: number, padString?: string): string;
 }
 
-interface Navigator {
-    simpleHID: any;
-}
-
 interface Text_Encoder {
     readonly encoding: 'utf-8';
     encode(buffer?: string, options?: {stream: boolean}): Uint8Array;
@@ -35,6 +31,10 @@ interface Text_Decoder_Constructor {
 }
 
 declare const TextDecoder: Text_Decoder_Constructor;
+
+interface Navigator {
+    simpleHID: any;
+}
 
 /* Pushing this to the global object because of a deficiency in typescript. */
 interface SymbolConstructor {

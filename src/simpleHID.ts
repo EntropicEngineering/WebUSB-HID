@@ -8,7 +8,9 @@ import 'improved_map';
 /* Typescript imports. Comment out in generated js file. */
 import * as HID from './HID_data';
 import * as USB from './USB_data';
-import {BOS_descriptor, HID_descriptor, item, languages_string_descriptor, string_descriptor, USAGE} from '../dist/parsers.js';
+import {BOS_descriptor, HID_descriptor, item, languages_string_descriptor, string_descriptor, USAGE, Data, Parsed, decode} from './parsers';
+
+import {Byte_Map, Repeat, Uint8, Byte_Map_Class} from 'declarative-binary-serialization';
 
 /* Browser imports. Uncomment in generated js file. */
 // import {BOS_descriptor, HID_descriptor, item, languages_string_descriptor, string_descriptor} from './parsers.js';
@@ -26,7 +28,7 @@ function hex_buffer(buffer: ArrayBuffer) {
 }
 
 export class USBTransferError extends Error {
-    constructor(message: any, status: WebUSB.USBTransferStatus) {
+    constructor(message: string, status: WebUSB.USBTransferStatus) {
         super(message);
         this.name = 'USBTransferError';
         this.status = status;
@@ -61,10 +63,10 @@ export default class Device {
     private _configuration_id = 1;
     readonly _filters: WebUSB.USBDeviceFilter[];
     protected webusb_device: WebUSB.USBDevice | undefined = undefined;
-    private _HID_descriptors: Map<number, ParserType.Parsed> = new Map();
-    private _BOS_descriptors: Map<number, Parser.Parsed> = new Map();
-    private _report_descriptors: Map<number, Parser.Parsed> = new Map();
-    private _physical_descriptors: Map<number, Array<Parser.Parsed>> = new Map();
+    private _HID_descriptors: Map<number, Parsed> = new Map();
+    private _BOS_descriptors: Map<number, Parsed> = new Map();
+    private _report_descriptors: Map<number, Parsed> = new Map();
+    private _physical_descriptors: Map<number, Array<Parsed>> = new Map();
     private _reports: Map<number, Reports> = new Map();
     private _string_descriptors: Map<number, Map<number, string | Array<number>>> = new Map();
 
@@ -136,9 +138,9 @@ export default class Device {
         }, 255));
         let result: string | Array<number>;
         if (index === 0) {
-            result = <Array<number>>languages_string_descriptor.parse(Buffer.from(data.buffer)).LANGID;
+            result = <Array<number>>languages_string_descriptor.parse(new DataView(data.buffer)).data.LANGID;
         } else {
-            result = <string>string_descriptor.parse(Buffer.from(data.buffer)).string;
+            result = <string>string_descriptor.parse(new DataView(data.buffer)).data.string;
         }
         this._string_descriptors.get(this._interface_id)!.set(index, result);
         return result;
@@ -169,7 +171,7 @@ export default class Device {
                 throw new USBTransferError(`Invalid length, ${total_length}, for BOS descriptor: ${hex_buffer(data.buffer)}`, 'ok')
             }
 
-            this._BOS_descriptors.set(this._interface_id, this.BOS_descriptor_parser(total_length).parse(Buffer.from(data.buffer)));
+            this._BOS_descriptors.set(this._interface_id, this.BOS_descriptor_parser(total_length).parse(new DataView(data.buffer)).data);
         }
         return this.BOS_descriptor;
     }
@@ -192,7 +194,7 @@ export default class Device {
                 throw new USBTransferError("Invalid HID descriptor length: " + hex_buffer(data.buffer), "ok");
             }
 
-            this._HID_descriptors.set(this._interface_id, this.HID_descriptor_parser(length).parse(Buffer.from(data.buffer)));
+            this._HID_descriptors.set(this._interface_id, this.HID_descriptor_parser(length).parse(new DataView(data.buffer)).data);
         }
         return this.HID_descriptor;
     }
@@ -223,7 +225,7 @@ export default class Device {
                 throw new USBTransferError("Invalid HID descriptor length: " + hex_buffer(data.buffer), "ok");
             }
 
-            this._report_descriptors.set(this._interface_id, this.report_descriptor_parser(length).parse(Buffer.from(data.buffer)));
+            this._report_descriptors.set(this._interface_id, this.report_descriptor_parser(length).parse(new DataView(data.buffer)).data);
         }
         return this.report_descriptor;
     }
@@ -260,7 +262,7 @@ export default class Device {
                 throw new USBTransferError("Invalid HID descriptor length: " + hex_buffer(data.buffer), "ok");
             }
 
-            this.physical_descriptor![index] = this.physical_descriptor_parser(length).parse(Buffer.from(data.buffer));
+            this.physical_descriptor![index] = this.physical_descriptor_parser(length).parse(new DataView(data.buffer)).data;
         }
         return this.physical_descriptor![index];
     }
@@ -290,11 +292,11 @@ export default class Device {
             usage_map.set(USAGE.object, null);
             usage_map.set(USAGE.array, null);
 
-            for (const descriptor of <Array<Parser.Parsed>>this.BOS_descriptor!.capability_descriptors) {
-                if (descriptor.hasOwnProperty('webusb_hid')) {
-                    const d = descriptor.webusb_hid as Parser.Parsed;
-                    if ((<Parser.Parsed>d.version).major > 1) {
-                        throw new DescriptorError(`Incompatible WebUSB-HID version: ${(<Parser.Parsed>d.version).major}`)
+            for (const descriptor of <Array<Parsed>>this.BOS_descriptor!.capability_descriptors) {
+                if (descriptor.hasOwnProperty('simpleHID')) {
+                    const d = descriptor.simpleHID as Parsed;
+                    if ((<Parsed>d.version).major > 1) {
+                        throw new DescriptorError(`Incompatible WebUSB-HID version: ${(<Parsed>d.version).major}`)
                     }
                     for (const usage of usage_map.keys()) {
                         const page = d[usage];
@@ -305,7 +307,7 @@ export default class Device {
                     break;
                 }
             }
-            const usage = Object.freeze(usage_map.asObject());
+            const usage = Object.freeze(usage_map.toObject());
 
             // TODO: FIXME
             if (usage) return usage;
@@ -320,7 +322,7 @@ export default class Device {
             reports.set('output', reports.get(HID.Request_Report_Type.Output)!);
             reports.set('feature', reports.get(HID.Request_Report_Type.Feature)!);
 
-            type Stack = Array<Map<string, Parser.Data>>
+            type Stack = Array<Map<string, Data>>
 
             const collection_stack: Stack = [];
 
@@ -329,21 +331,21 @@ export default class Device {
             let delimiter_stack: Stack = [];
             let delimited = false;
 
-            let empty_local_state = () => new Map<string, Stack | Parser.Data>([['usage_stack', []], ['string_stack', []], ['designator_stack', []]]);
+            let empty_local_state = () => new Map<string, Stack | Data>([['usage_stack', []], ['string_stack', []], ['designator_stack', []]]);
 
             const states = new Map([
                 [HID.Report_Item_Type.Global, new Map()],
                 [HID.Report_Item_Type.Local, empty_local_state()],
             ]);
 
-            function add_raw_tags(item: Parser.Parsed) {
+            function add_raw_tags(item: Parsed) {
                 /* Strips 'type', 'tag', and 'size' from item, then adds whatever is left to the correct state table */
                 states.get(item.type as HID.Report_Item_Type)!.update(Object.entries(item).slice(3));
             }
 
             const data_field_main_item_types = [HID.Report_Main_Item_Tag.Input, HID.Report_Main_Item_Tag.Output, HID.Report_Main_Item_Tag.Feature];
 
-            for (const item of <Array<Parser.Parsed>>this.report_descriptor!.items) {
+            for (const item of <Array<Parsed>>this.report_descriptor!.items) {
                 switch (item.type as HID.Report_Item_Type) {
                     case HID.Report_Item_Type.Global:
                         switch (item.tag as HID.Report_Global_Item_Tag) {
@@ -461,21 +463,25 @@ export default class Device {
         return HID_descriptor;
     }
 
-    report_descriptor_parser(length: number) {
-        return new Parser()
-            .array('items', {
-                type: item,
-                lengthInBytes: length
-            });
+    report_descriptor_parser(bytes: number) {
+        return Byte_Map({decode})
+            .set('items', Repeat({bytes}, item));
+        // new Parser()
+        //     .array('items', {
+        //         type: item,
+        //         lengthInBytes: length
+        //     });
     }
 
     /* Interpreting Physical Descriptor left as an exercise for the reader. */
-    physical_descriptor_parser(length: number) {
-        return new Parser()
-            .array('bytes', {
-                type: 'uint8',
-                lengthInBytes: length
-            });
+    physical_descriptor_parser(bytes: number) {
+        return Byte_Map({decode})
+            .set('bytes', Repeat({bytes}, Uint8));
+        // new Parser()
+        //     .array('bytes', {
+        //         type: 'uint8',
+        //         lengthInBytes: bytes
+        //     });
     }
 
     /***************************
@@ -510,7 +516,7 @@ export default class Device {
 
     get reports() {
         let result = this._reports.get(this._interface_id);
-        return result !== undefined ? Object.freeze(result.asObject()) : result;
+        return result !== undefined ? Object.freeze(result.toObject()) : result;
     }
 
     /******************

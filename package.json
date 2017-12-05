@@ -2,7 +2,8 @@
   "name": "simple-hid",
   "version": "0.1.0",
   "description": "Simplified USB-HID based protocol library, designed for use with WebUSB",
-  "main": "dist/simpleHID.js",
+  "main": "./dist/simpleHID.js",
+  "typings": "./typings/simpleHID.d.ts",
   "scripts": {
     "build": "webpack && tsc",
     "tsc": "tsc",
@@ -26,10 +27,10 @@
   "devDependencies": {
     "source-map-loader": "^0.2.3",
     "typescript": "^2.6.2",
-    "webpack": "^3.8.1"
+    "webpack": "^3.10.0"
   },
   "dependencies": {
     "declarative-binary-serialization": "file:../declarative-binary-serialization",
-    "improved_map": "^1.0.1"
+    "improved_map": "^1.0.2"
   }
 }

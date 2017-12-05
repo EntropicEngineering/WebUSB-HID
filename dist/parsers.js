@@ -1,221 +1,157 @@
-/* Typescript imports. Comment out in generated js file. */
-// import Parser from 'binary-parser';
-// import * as HID from './HID_data';
-// import * as USB from './USB_data';
-// /* Browser imports. Uncomment in generated js file. */
-import _Parser from './wrapped/binary_parser.js';   let Parser = _Parser.Parser;
+import 'improved_map';
+import * as HID from './HID_data';
+import * as USB from './USB_data';
+import { Byte_Map, Byte_Buffer, Pass, Bits, Uint, Uint8, Uint16LE, Uint32LE, Int8, Int16LE, Int32LE, Embed, Padding, Branch, Repeat, hex } from 'declarative-binary-serialization';
 export const Platform_UUIDs = {
     /* python -c "import uuid;print(', '.join(map(hex, uuid.UUID('3408b638-09a9-47a0-8bfd-a0768815b665').bytes_le)))" */
     WebUSB: [0x38, 0xb6, 0x8, 0x34, 0xa9, 0x9, 0xa0, 0x47, 0x8b, 0xfd, 0xa0, 0x76, 0x88, 0x15, 0xb6, 0x65],
     /* python -c "import uuid;print(', '.join(map(hex, uuid.UUID('a8adf97c-6a20-48e4-a97c-79978eec00c7').bytes_le)))" */
-    WebUSB_HID: [0x7c, 0xf9, 0xad, 0xa8, 0x20, 0x6a, 0xe4, 0x48, 0xa9, 0x7c, 0x79, 0x97, 0x8e, 0xec, 0x0, 0xc7]
+    SimpleHID: [0x7c, 0xf9, 0xad, 0xa8, 0x20, 0x6a, 0xe4, 0x48, 0xa9, 0x7c, 0x79, 0x97, 0x8e, 0xec, 0x0, 0xc7]
 };
-/* Because binary-parser uses 'eval' shit, this needs to be in the global namespace */
-window.Platform_UUIDs = Platform_UUIDs;
-/* Utility Parsers */
-let null_parser = new Parser().namely('null_parser');
-let BCD_version = new Parser()
-    .endianess('little')
-    .uint8('major')
-    .bit4('minor')
-    .bit4('patch');
-/* HID Report Parsers */
-let input_ouput_feature_size_1 = new Parser()
-    .bit1('data_or_constant')
-    .bit1('array_or_variable')
-    .bit1('absolute_or_relative')
-    .bit1('no_wrap_or_wrap')
-    .bit1('linear_or_non_linear')
-    .bit1('preferred_state_or_no_preferred')
-    .bit1('no_null_position_or_null_state')
-    .bit1('not_volitile_or_volitie');
-// .uint8('byte0');
-let input_output_feature_size_2 = new Parser()
-    .nest('', { type: input_ouput_feature_size_1 })
-    .bit1('bit_field_or_buffered_bytes');
-/* Everything following in byte is reserved and should be 0, thus it's ignored. */
-let input_output_feature_size_4 = new Parser()
-    .nest('', { type: input_output_feature_size_2 })
-    .skip(2);
-let input_output_feature_item = new Parser()
-    .choice('', {
-    // tag: function() {return this.size as number},
-    tag: 'size',
-    choices: {
-        0: null_parser,
-        1: input_ouput_feature_size_1,
-        2: input_output_feature_size_2,
-        3: input_output_feature_size_4
-    }
-});
-let collection = new Parser()
-    .choice('', {
-    // tag: function() {return this.size as number},
-    tag: 'size',
-    choices: { 0: null_parser },
-    defaultChoice: new Parser()
-        .uint8('collection', { assert: (value) => ((value < 0x07) || (value > 0x7F)) })
-});
-let usage = (default_global = true, local_item = "usage_id") => new Parser()
-    .choice('', {
-    // tag: function() {return this.size as number},
-    tag: 'size',
-    choices: {
-        1: new Parser().endianess('little').uint8(default_global ? 'usage_page' : local_item),
-        2: new Parser().endianess('little').uint16(default_global ? 'usage_page' : local_item),
-        3: new Parser().endianess('little').uint16(local_item).uint16('usage_page')
-    }
-});
-let sized_int = (name) => {
-    return new Parser()
-        .choice('', {
-        // tag: function() {return this.size as number},
-        tag: 'size',
-        choices: {
-            1: new Parser().int8(name),
-            2: new Parser().endianess('little').int16(name),
-            3: new Parser().endianess('little').int32(name)
-        }
-    });
-};
-let sized_uint = (name) => {
-    return new Parser()
-        .choice('', {
-        // tag: function() {return this.size as number},
-        tag: 'size',
-        choices: {
-            1: new Parser().uint8(name),
-            2: new Parser().endianess('little').uint16(name),
-            3: new Parser().endianess('little').uint32(name)
-        }
-    });
-};
-let main_item = new Parser()
-    .choice('', {
-    // tag: function() {return this.tag as number},
-    tag: 'tag',
-    choices: {
-        [8 /* Input */]: input_output_feature_item,
-        [9 /* Output */]: input_output_feature_item,
-        [11 /* Feature */]: input_output_feature_item,
-        [10 /* Collection */]: collection,
-        [12 /* End_Collection */]: null_parser
-    }
-});
-let global_item = new Parser()
-    .choice('', {
-    // tag: function() {return this.tag as number},
-    tag: 'tag',
-    choices: {
-        [0 /* Usage_Page */]: usage(),
-        [1 /* Logical_Minimum */]: sized_int('logical_minimum'),
-        [2 /* Logical_Maximum */]: sized_int('logical_maximum'),
-        [3 /* Physical_Minimum */]: sized_int('physical_minimum'),
-        [4 /* Physical_Maximum */]: sized_int('physical_maximum'),
-        /* Parsing unit information left as an exercise to the reader. */
-        [5 /* Unit_Exponent */]: new Parser().uint8('unit_exponent', { formatter: (value) => {
-                value &= 0xF; /* Only the first nibble is used */
-                if (value > 7) {
-                    value -= 0xF; /* 4-bit 2's complement */
-                }
+/* Utility functions */
+const assert = (func, message) => {
+    return { decode: (value) => {
+            const result = func(value);
+            if (result) {
                 return value;
-            } }),
-        [6 /* Unit */]: new Parser().endianess('little').uint32('unit'),
-        [7 /* Report_Size */]: sized_uint('report_size'),
-        [8 /* Report_ID */]: new Parser().uint8('report_id'),
-        [9 /* Report_Count */]: sized_uint('report_count'),
-        [10 /* Push */]: null_parser,
-        [11 /* Pop */]: null_parser
-    }
+            }
+            else {
+                throw new Error(message + `: ${hex(value)}`);
+            }
+        } };
+};
+const get = (name) => (context) => context.get(name);
+export const decode = (data) => data.toObject();
+/* Utility Parsers */
+let null_parser = Pass;
+let BCD_version = Byte_Map({ decode })
+    .set('major', Uint8)
+    .set('minor', Bits(4))
+    .set('patch', Bits(4));
+/* HID Report Parsers */
+let input_ouput_feature_size_1 = Byte_Map()
+    .set('data_or_constant', Bits(1))
+    .set('array_or_variable', Bits(1))
+    .set('absolute_or_relative', Bits(1))
+    .set('no_wrap_or_wrap', Bits(1))
+    .set('linear_or_nonlinear', Bits(1))
+    .set('preferred_state_or_no_preferred', Bits(1))
+    .set('no_null_position_or_null_state', Bits(1))
+    .set('not_volatile_or_volatile', Bits(1));
+let input_output_feature_size_2 = Byte_Map()
+    .set('embed byte 1', Embed(input_ouput_feature_size_1))
+    .set('bit_field_or_buffered_bytes', Bits(1))
+    .set('ignored', Padding({ bits: 7 }));
+let input_output_feature_size_4 = Byte_Map()
+    .set('embed bytes 1-2', Embed(input_output_feature_size_2))
+    .set('padding', Padding({ bytes: 2 }));
+let input_output_feature_item = Branch(get('size'), {
+    0: null_parser,
+    1: input_ouput_feature_size_1,
+    2: input_output_feature_size_2,
+    3: input_output_feature_size_4
 });
-let local_item = new Parser()
-    .choice('', {
-    // tag: function() {return this.tag as number},
-    tag: 'tag',
-    choices: {
-        /* Usages left as an exercise to the reader. */
-        [0 /* Usage */]: usage(false),
-        [1 /* Usage_Minimum */]: usage(false, 'usage_minimum'),
-        [2 /* Usage_Maximum */]: usage(false, 'usage_maximum'),
-        /* Physical Descriptors left as an exercise to the reader. */
-        [3 /* Designator_Index */]: sized_uint('designator_index'),
-        [4 /* Designator_Minimum */]: sized_uint('designator_minimum'),
-        [5 /* Designator_Maximum */]: sized_uint('designator_maximum'),
-        [7 /* String_Index */]: sized_uint('string_index'),
-        [8 /* String_Minimum */]: sized_uint('string_minimum'),
-        [9 /* String_Maximum */]: sized_uint('string_maximum'),
-        [10 /* Delimiter */]: sized_uint('delimiter')
-    }
+let collection = Branch(get('size'), { 0: null_parser }, Uint(8, assert((value) => (value < 0x07) || (value > 0x7F), 'Invalid collection type')));
+let usage = (default_global = true, local_item = "usage_id") => Branch(get('size'), {
+    1: Byte_Map().set(default_global ? 'usage_page' : local_item, Uint8),
+    2: Byte_Map().set(default_global ? 'usage_page' : local_item, Uint16LE),
+    3: Byte_Map().set(local_item, Uint16LE).set('usage_page', Uint16LE)
 });
-let short_item = new Parser()
-    .choice('', {
-    // tag: function() {return this.tag as number},
-    tag: 'type',
-    choices: {
-        [0 /* Main */]: main_item,
-        [1 /* Global */]: global_item,
-        [2 /* Local */]: local_item
-    }
+let sized_int = (name) => Byte_Map().set(name, Branch(get('size'), { 1: Int8, 2: Int16LE, 3: Int32LE }));
+let sized_uint = (name) => Byte_Map().set(name, Branch(get('size'), { 1: Uint8, 2: Uint16LE, 3: Uint32LE }));
+// let sized_uint = (name: string): Parser => {
+//     return new Parser()
+//         .choice('', {
+//             // tag: function() {return this.size as number},
+//             tag: 'size',
+//             choices: {
+//                 1: new Parser().uint8(name),
+//                 2: new Parser().endianess('little').uint16(name),
+//                 3: new Parser().endianess('little').uint32(name)
+//             }
+//         })
+// };
+let main_item = Branch(get('tag'), {
+    [8 /* Input */]: input_output_feature_item,
+    [9 /* Output */]: input_output_feature_item,
+    [11 /* Feature */]: input_output_feature_item,
+    [10 /* Collection */]: collection,
+    [12 /* End_Collection */]: null_parser
 });
-let long_item = new Parser()
-    .endianess('little')
-    .uint8('data_size')
-    .uint8('long_item_tag', { assert: (tag) => (tag >= 0xF0) })
-    .buffer('data', { length: 'data_size' });
+let global_item = Branch(get('tag'), {
+    [0 /* Usage_Page */]: usage(),
+    [1 /* Logical_Minimum */]: sized_int('logical_minimum'),
+    [2 /* Logical_Maximum */]: sized_int('logical_maximum'),
+    [3 /* Physical_Minimum */]: sized_int('physical_minimum'),
+    [4 /* Physical_Maximum */]: sized_int('physical_maximum'),
+    /* Parsing unit information left as an exercise to the reader. */
+    [5 /* Unit_Exponent */]: Byte_Map().set('unit_exponent', Uint(8, { decode: (value) => {
+            value &= 0xF;
+            /* Only the first nibble is used */
+            if (value > 7) {
+                value -= 0xF;
+                /* 4-bit 2's complement */
+            }
+            return value;
+        } })),
+    [6 /* Unit */]: Byte_Map().set('unit', Uint32LE),
+    [7 /* Report_Size */]: sized_uint('report_size'),
+    [8 /* Report_ID */]: Byte_Map().set('report_id', Uint8),
+    [9 /* Report_Count */]: sized_uint('report_count'),
+    [10 /* Push */]: null_parser,
+    [11 /* Pop */]: null_parser
+});
+let local_item = Branch(get('tag'), {
+    /* Usages left as an exercise to the reader. */
+    [0 /* Usage */]: usage(false),
+    [1 /* Usage_Minimum */]: usage(false, 'usage_minimum'),
+    [2 /* Usage_Maximum */]: usage(false, 'usage_maximum'),
+    /* Physical Descriptors left as an exercise to the reader. */
+    [3 /* Designator_Index */]: sized_uint('designator_index'),
+    [4 /* Designator_Minimum */]: sized_uint('designator_minimum'),
+    [5 /* Designator_Maximum */]: sized_uint('designator_maximum'),
+    [7 /* String_Index */]: sized_uint('string_index'),
+    [8 /* String_Minimum */]: sized_uint('string_minimum'),
+    [9 /* String_Maximum */]: sized_uint('string_maximum'),
+    [10 /* Delimiter */]: sized_uint('delimiter')
+});
+let short_item = Branch(get('type'), {
+    [0 /* Main */]: main_item,
+    [1 /* Global */]: global_item,
+    [2 /* Local */]: local_item
+});
+let long_item = Byte_Map()
+    .set('data_size', Uint8)
+    .set('long_item_tag', Uint(8, assert((tag) => (tag >= 0xF0), "Invalid long_item_tag")))
+    .set('data', Byte_Buffer(get('data_size')));
 /* exports */
-export let item = new Parser()
-    .endianess('little')
-    .bit2('size')
-    .bit2('type', {
-    assert: (type) => (type !== 3) /* Reserved value */ /* Not actually checked because of https://github.com/keichi/binary-parser/issues/56 */
-})
-    .bit4('tag')
-    .choice('', {
-    // tag: function() {return parsed.tag << 4 | parsed.type << 2 | parsed.size},
-    tag: function () { return (this.tag * 16 + this.type * 4 + this.size); },
-    choices: { 0b11111110: long_item },
-    defaultChoice: short_item
-});
-export let HID_descriptor = new Parser()
-    .endianess('little')
-    .uint8('length')
-    .uint8('type', { assert: 33 /* HID */ })
-    .nest('version', { type: BCD_version })
-    .uint8('country_code')
-    .uint8('count', { assert: (count) => (count > 0) })
-    .array('descriptors', {
-    type: new Parser()
-        .endianess('little')
-        .uint8('type')
-        .uint16('size'),
-    length: function () { return this.count; }
-})
-    .array('extra', {
-    type: 'uint8',
-    readUntil: 'eof',
-    assert: (array) => (array.length === 0)
-});
-export let languages_string_descriptor = new Parser()
-    .endianess('little')
-    .uint8('length')
-    .uint8('type', { assert: 3 /* STRING */ })
-    .array('LANGID', {
-    type: 'uint16le',
-    lengthInBytes: function () { return this.length - 2; }
-});
-export let string_descriptor = new Parser()
-    .endianess('little')
-    .uint8('length')
-    .uint8('type', { assert: 3 /* STRING */ })
-    .string('string', {
-    encoding: 'utf16le',
-    length: function () { return this.length - 2; },
-    stripNull: true,
-});
-let webusb = new Parser()
-    .nest('version', { type: BCD_version })
-    .uint8('vendor_code')
-    .uint8('landing_page_index');
+export let item = Byte_Map({ decode })
+    .set('size', Bits(2))
+    .set('type', Bits(2))
+    .set('tag', Bits(4))
+    .set('The rest', Embed(Branch(
+/* context.tag << 4 | context.type << 2 | context.size */
+(context) => context.get('tag') * 16 + context.get('type') * 4 + context.size, { 0b11111110: long_item }, short_item)));
+export let HID_descriptor = Byte_Map({ decode })
+    .set('length', Uint8)
+    .set('type', Uint(8, assert((data) => data === 33 /* HID */, "Invalid Class Descriptor")))
+    .set('version', BCD_version)
+    .set('country_code', Uint8)
+    .set('count', Uint(8, assert((count) => count > 0, "Invalid number of descriptors")))
+    .set('descriptors', Repeat({ count: get('count') }, Byte_Map({ decode }).set('type', Uint8).set('size', Uint16LE)));
+export let languages_string_descriptor = Byte_Map({ decode })
+    .set('length', Uint8)
+    .set('type', Uint(8, assert((value) => value === 3 /* STRING */, "Invalid string descriptor type")))
+    .set('LANGID', Repeat({ count: (context) => (context.get('length') - 2) / 2 }, Uint16LE));
+const text_decoder = new TextDecoder("utf-16le");
+export let string_descriptor = Byte_Map({ decode })
+    .set('length', Uint8)
+    .set('type', Uint(8, assert((value) => value === 3 /* STRING */, "Invalid string descriptor type")))
+    .set('string', Byte_Buffer((context) => (context.get('length') - 2), { decode: (buffer) => text_decoder.decode(buffer) }));
+let webusb = Byte_Map()
+    .set('version', BCD_version)
+    .set('vendor_code', Uint8)
+    .set('landing_page_index', Uint8);
 export var USAGE;
 (function (USAGE) {
     USAGE["page"] = "page";
@@ -228,60 +164,41 @@ export var USAGE;
     USAGE["object"] = "object";
     USAGE["array"] = "array";
 })(USAGE || (USAGE = {}));
-let webusb_hid = new Parser()
-    .endianess('little')
-    .nest('version', { type: BCD_version })
-    .uint16("page" /* page */, { assert: (usage) => usage >= 0xFF00 })
-    .uint16("application" /* application */)
-    .uint16("uint" /* uint */)
-    .uint16("int" /* int */)
-    .uint16("float" /* float */)
-    .uint16("bits" /* bits */)
-    .uint16("utf8" /* utf8 */)
-    .uint16("object" /* object */)
-    .uint16("array" /* array */);
-let platform_capability = new Parser()
-    .endianess('little')
-    .uint8('reserved', { assert: 0 })
-    .array('uuid', {
-    type: 'uint8',
-    lengthInBytes: 16
-})
-    .choice('', {
-    tag: function () {
-        for (let [index, uuid] of [Platform_UUIDs.WebUSB, Platform_UUIDs.WebUSB_HID].entries()) {
-            /* Check for match, because Javascript Arrays can't figure out how to do equality checks */
-            if (uuid.every((v, i) => this.uuid[i] === v))
-                return index;
-        }
-        return -1;
-    },
-    choices: {
-        0: new Parser().nest('webusb', { type: webusb }),
-        1: new Parser().nest('webusb_hid', { type: webusb_hid }),
-    },
-    defaultChoice: new Parser().buffer('unknown_platform', { length: function () { return this.length - 20; } })
-});
-let capability_descriptors = new Parser()
-    .endianess('little')
-    .uint8('length')
-    .uint8('descriptor_type', { assert: 16 /* DEVICE_CAPABILITY */ })
-    .uint8('type', { assert: function (n) { return n > 0 && n < 0x0D; } })
-    .choice('', {
-    tag: 'type',
-    choices: {
-        [5 /* PLATFORM */]: platform_capability
-    },
-    defaultChoice: new Parser().buffer('unknown_capability', { length: function () { return this.length - 3; } })
-});
-export let BOS_descriptor = new Parser()
-    .endianess('little')
-    .uint8('length')
-    .uint8('type', { assert: 15 /* BOS */ })
-    .uint16('total_length')
-    .uint8('capability_descriptor_count')
-    .array('capability_descriptors', {
-    type: capability_descriptors,
-    lengthInBytes: function () { return this.total_length - 5; /* byte length of BOS header */ }
-});
+let simpleHID = Byte_Map()
+    .set('version', BCD_version)
+    .set("page" /* page */, Uint(16, { little_endian: true, decode: (usage) => usage >= 0xFF00 }))
+    .set("application" /* application */, Uint16LE)
+    .set("uint" /* uint */, Uint16LE)
+    .set("int" /* int */, Uint16LE)
+    .set("float" /* float */, Uint16LE)
+    .set("bits" /* bits */, Uint16LE)
+    .set("utf8" /* utf8 */, Uint16LE)
+    .set("object" /* object */, Uint16LE)
+    .set("array" /* array */, Uint16LE);
+let platform_capability = Byte_Map()
+    .set('reserved', Uint(8, assert((v) => v === 0, "Invalid reserved value")))
+    .set('uuid', Repeat({ count: 16 }, Uint8))
+    .set('platform', Embed(Branch((context) => {
+    const UUID = context.get('uuid');
+    for (let [index, uuid] of [Platform_UUIDs.WebUSB, Platform_UUIDs.SimpleHID].entries()) {
+        /* Check for match, because Javascript Arrays can't figure out how to do equality checks */
+        if (uuid.every((v, i) => UUID[i] === v))
+            return index;
+    }
+    return -1;
+}, {
+    0: Byte_Map().set('webusb', webusb),
+    1: Byte_Map().set('simpleHID', simpleHID)
+}, Byte_Map().set('unknown_platform', Byte_Buffer((context) => context.get('length') - 20)))));
+let capability_descriptors = Byte_Map({ decode })
+    .set('length', Uint8)
+    .set('descriptor_type', Uint(8, assert((data) => data === 16 /* DEVICE_CAPABILITY */, "Incorrect descriptor type, should be DEVICE CAPABILITY")))
+    .set('type', Uint(8, assert((data) => data > 0 && data < 0x0D, "Invalid device capability type")))
+    .set('capability', Embed(Branch(get('type'), { [5 /* PLATFORM */]: platform_capability }, Byte_Map().set('unknown_capability', Byte_Buffer((context) => context.get('length') - 3)))));
+export let BOS_descriptor = Byte_Map({ decode })
+    .set('length', Uint8)
+    .set('type', Uint(8, assert((data) => data === 15 /* BOS */, "Invalid descriptor type, should be BOS")))
+    .set('total_length', Uint16LE)
+    .set('capability_descriptor_count', Uint8)
+    .set('capability_descriptors', Repeat({ count: get('capability_descriptor_count') }, capability_descriptors));
 //# sourceMappingURL=parsers.js.map

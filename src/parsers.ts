@@ -49,7 +49,7 @@ const assert = (func: (data: any) => boolean, message: string) => {
 
 const get = (name: string) => (context: Context_Map): number => context.get(name);
 
-const decode = <T>(data: Map<string, T>) => data.toObject();
+export const decode = <T>(data: Map<string, T>) => data.toObject();
 
 export type Data = Parsed | number | Array<Parsed | number>;
 export interface Parsed {
@@ -208,12 +208,12 @@ export let HID_descriptor = Byte_Map({decode})
     .set('version', BCD_version)
     .set('country_code', Uint8)
     .set('count', Uint(8, assert((count: number) => count > 0, "Invalid number of descriptors")))
-    .set('descriptors', Repeat(get('count'), Byte_Map({decode}).set('type', Uint8).set('size', Uint16LE)));
+    .set('descriptors', Repeat({count: get('count')}, Byte_Map({decode}).set('type', Uint8).set('size', Uint16LE)));
 
 export let languages_string_descriptor = Byte_Map({decode})
     .set('length', Uint8)
     .set('type', Uint(8, assert((value: number) => value === USB.Descriptor_Type.STRING, "Invalid string descriptor type")))
-    .set('LANGID', Repeat((context: Context_Map) => (context.get('length') - 2)/2, Uint16LE));
+    .set('LANGID', Repeat({count: (context: Context_Map) => (context.get('length') - 2)/2}, Uint16LE));
 
 const text_decoder = new TextDecoder("utf-16le");
 export let string_descriptor = Byte_Map({decode})
@@ -252,7 +252,7 @@ let simpleHID = Byte_Map()
 
 let platform_capability = Byte_Map()
     .set('reserved', Uint(8, assert((v: number) => v === 0, "Invalid reserved value")))
-    .set('uuid', Repeat(16, Uint8))
+    .set('uuid', Repeat({count: 16}, Uint8))
     .set('platform', Embed(Branch(
         (context: Context_Map) => {
             const UUID = context.get('uuid');
@@ -285,4 +285,4 @@ export let BOS_descriptor = Byte_Map({decode})
     .set('type', Uint(8, assert((data: number) => data === USB.Descriptor_Type.BOS, "Invalid descriptor type, should be BOS")))
     .set('total_length', Uint16LE)
     .set('capability_descriptor_count', Uint8)
-    .set('capability_descriptors', Repeat(get('capability_descriptor_count'), capability_descriptors));
+    .set('capability_descriptors', Repeat({count: get('capability_descriptor_count')}, capability_descriptors));

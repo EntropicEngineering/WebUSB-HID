@@ -25,12 +25,17 @@
   },
   "homepage": "https://github.com/EntropicEngineering/SimpleHID#readme",
   "devDependencies": {
+    "babel-core": "^6.26.0",
+    "cache-loader": "^1.2.0",
+    "fork-ts-checker-webpack-plugin": "^0.2.9",
     "source-map-loader": "^0.2.3",
+    "thread-loader": "^1.1.2",
+    "ts-loader": "^3.2.0",
     "typescript": "^2.6.2",
     "webpack": "^3.10.0"
   },
   "dependencies": {
-    "declarative-binary-serialization": "file:../declarative-binary-serialization",
-    "improved_map": "^1.0.2"
+    "binary-structures": "file:../binary-structures/binary-structures-1.2.1.tgz",
+    "improved-map": "^1.0.7"
   }
 }

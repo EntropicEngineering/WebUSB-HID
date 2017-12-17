@@ -3,14 +3,16 @@
  *
  * USB HID utility for WebUSB.
  */
-import 'improved_map';
 /* Typescript imports. Comment out in generated js file. */
+import 'improved-map';
+import { Binary_Map, Repeat, Uint8 } from 'binary-structures';
 import * as HID from './HID_data';
 import * as USB from './USB_data';
-import { BOS_descriptor, HID_descriptor, item, languages_string_descriptor, string_descriptor, decode } from './parsers';
-import { Byte_Map, Repeat, Uint8 } from 'declarative-binary-serialization';
+import { BOS_descriptor, HID_descriptor, HID_item, languages_string_descriptor, string_descriptor, decode } from './parsers';
 /* Browser imports. Uncomment in generated js file. */
-// import {BOS_descriptor, HID_descriptor, item, languages_string_descriptor, string_descriptor} from './parsers.js';
+// import "./wrapped/improved-map.js"
+// import {BOS_descriptor, HID_descriptor, HID_item, languages_string_descriptor, string_descriptor, decode} from './parsers.js';
+// import {Binary_Map, Repeat, Uint8} from './wrapped/binary-structures.js';
 /*************
  * Utilities *
  *************/
@@ -401,17 +403,17 @@ export default class Device {
         return HID_descriptor;
     }
     report_descriptor_parser(bytes) {
-        return Byte_Map({ decode })
-            .set('items', Repeat({ bytes }, item));
+        return Binary_Map({ decode })
+            .set('items', Repeat({ bytes }, HID_item));
         // new Parser()
         //     .array('items', {
-        //         type: item,
+        //         type: HID_item,
         //         lengthInBytes: length
         //     });
     }
     /* Interpreting Physical Descriptor left as an exercise for the reader. */
     physical_descriptor_parser(bytes) {
-        return Byte_Map({ decode })
+        return Binary_Map({ decode })
             .set('bytes', Repeat({ bytes }, Uint8));
         // new Parser()
         //     .array('bytes', {

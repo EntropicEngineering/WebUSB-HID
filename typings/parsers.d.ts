@@ -1,18 +1,18 @@
-import 'improved_map';
-import { Byte_Map_Class } from 'declarative-binary-serialization';
+import 'improved-map';
+import { Binary_Map } from 'binary-structures';
 export declare const Platform_UUIDs: {
     WebUSB: number[];
     SimpleHID: number[];
 };
-export declare const decode: <T>(data: Map<string, T>) => any;
+export declare const decode: (data: Map<string, any>) => any;
 export declare type Data = Parsed | number | Array<Parsed | number>;
 export interface Parsed {
     [name: string]: Data;
 }
-export declare let item: Byte_Map_Class<any, {}>;
-export declare let HID_descriptor: Byte_Map_Class<any, {}>;
-export declare let languages_string_descriptor: Byte_Map_Class<any, {}>;
-export declare let string_descriptor: Byte_Map_Class<any, {}>;
+export declare let HID_item: Binary_Map<any, any, {}>;
+export declare let HID_descriptor: Binary_Map<any, any, {}>;
+export declare let languages_string_descriptor: Binary_Map<any, any, {}>;
+export declare let string_descriptor: Binary_Map<any, any, {}>;
 export declare const enum USAGE {
     page = "page",
     application = "application",
@@ -24,4 +24,4 @@ export declare const enum USAGE {
     object = "object",
     array = "array",
 }
-export declare let BOS_descriptor: Byte_Map_Class<any, {}>;
+export declare let BOS_descriptor: Binary_Map<any, any, {}>;

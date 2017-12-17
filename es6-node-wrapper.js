@@ -23,7 +23,9 @@ class ES6_Node_Wrapper {
       : '';
     const inWinMsg = `wrapper: window.${name} exists; exporting it.`;
 
-    const prefix = `// Programmatically created by wraplib.js
+    name = name.replace(/-/g, '_');
+
+    const prefix = `// Programmatically created by wraplib
 let result;
 const win = window;
 if (window.${name}) {

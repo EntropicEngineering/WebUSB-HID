@@ -3,10 +3,10 @@
  *
  * USB HID utility for WebUSB.
  */
-import 'improved_map';
+import 'improved-map';
+import { Binary_Map } from 'binary-structures';
 import * as HID from './HID_data';
 import { Parsed } from './parsers';
-import { Byte_Map_Class } from 'declarative-binary-serialization';
 export declare class USBTransferError extends Error {
     constructor(message: string, status: WebUSB.USBTransferStatus);
     status: WebUSB.USBTransferStatus;
@@ -45,10 +45,10 @@ export default class Device {
     /**************************
      * External Parser Access *
      **************************/
-    BOS_descriptor_parser(length: number): Byte_Map_Class<any, {}>;
-    HID_descriptor_parser(length: number): Byte_Map_Class<any, {}>;
-    report_descriptor_parser(bytes: number): Byte_Map_Class<any, {}>;
-    physical_descriptor_parser(bytes: number): Byte_Map_Class<any, {}>;
+    BOS_descriptor_parser(length: number): Binary_Map<any, any, {}>;
+    HID_descriptor_parser(length: number): Binary_Map<any, any, {}>;
+    report_descriptor_parser(bytes: number): Binary_Map<any, any, {}>;
+    physical_descriptor_parser(bytes: number): Binary_Map<any, any, {}>;
     /***************************
      * Public Attribute Access *
      ***************************/

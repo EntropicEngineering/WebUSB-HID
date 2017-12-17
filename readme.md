@@ -1,7 +1,8 @@
-Notes
-=====
+SimpleHID
+=========
 
-To be written up properly later.
+Protocol
+--------
 
 Device acts like a normal HID class device, except Vendor class type in Interface descriptor.
 
@@ -58,7 +59,8 @@ Data items being accessed via a nested Array or Object. This can be used
 to construct arbitrarily complex objects. Best practice, however, is to
 split data between Report IDs to create additional smaller reports.
 
-Example SimpleHID Report Descriptor:
+Example SimpleHID Report Descriptor
+-----------------------------------
 ```c
 Usage_Page (SimpleHID_vendor_page /* default of 0xFFAA */)
 Usage_ID (SimpleHID_application_collection)    /* default of 0x0000 */
@@ -69,13 +71,13 @@ Collection (Application)
      * Report Name: 'timestamp'
      * Report Data: [ Uint64 ]
      */
-    String_Index (4)        /* u'timestamp' */
-    Collection (Report)
-        Report_ID (1)
-        Usage_ID (Uint /* default of 0x0001 */)
-        Report_Size (64)
-        Report_Count (1)    /* 1x Uint64 */
-        Output (Variable | Volatile)
+    String_Index(4)             /* u'timestamp' */
+    Collection(Report)
+        Report_ID(1)
+        Usage_ID(USAGE_UINT)    /* default of 0x0001 */
+        Report_Size(64)
+        Report_Count(1)         /* 1x Uint64 */
+        Output(Variable | Volatile)
     End_Collection
 
     /* Report ID:   1
@@ -85,25 +87,16 @@ Collection (Application)
      *                'serial_number': Uint32,
      *                'status': Uint8[4] }
      */
-    String_Index (5)        /* u'status' */
-    Usage_ID (Object /* default of 0x0006 */)
-    Collection (Report)
-        Report_ID (1)       /* Same Report ID as 'timestamp', but this is an Input */
-        String_Index (4)    /* u'timestamp' */
-        Usage_ID (Uint)
-        Report_Size (64)
-        Report_Count (1)
-        Input (Variable)    /* 1x Uint64 */
-        String_Index (6)    /* u'serial_number' */
-        Usage_ID (Uint)
-        Report_Size (32)
-        Report_Count (1)
-        Input (Variable)    /* 1x Uint32 */
-        String_Index (5)    /* u'status */
-        Usage_ID (Uint)
-        Report_Size (8)
-        Report_Count (4)    /* 4x Uint8 */
-        Input (Variable | Buffered_Bytes)
+    String_Index(5)         /* u'status' */
+    Usage_ID(USAGE_OBJECT)  /* default of 0x0006 */
+    Collection(Report)
+        Report_ID(1)        /* Same Report ID as 'timestamp', but this is an Input */
+        String_Index(4)     /* u'timestamp' */
+        Report_Count(1) Usage_ID(USAGE_UINT) Report_Size(64) Input(Variable)                    /* 1x Uint64 */
+        String_Index(6)     /* u'serial_number' */
+        Report_Count(1) Usage_ID(USAGE_UINT) Report_Size(32) Input(Variable)                    /* 1x Uint32 */
+        String_Index(5)     /* u'status */
+        Report_Count(4) Usage_ID(USAGE_UINT) Report_Size(8) Input(Variable | Buffered_Bytes)    /* 4x Uint8 */
     End_Collection
 
     /* Report ID:   2
@@ -113,25 +106,16 @@ Collection (Application)
      *                'threshold': Uint16,
      *                'item_order': Uint8[10] }
      */
-    String_Index (7)        /* u'config'*/
-    Usage_ID (Object)
-    Collection (Report)
-        Report_ID (2)
-        String_Index (8)    /* u'timeout' */
-        Usage_ID (Uint)
-        Report_Size (64)
-        Report_Count (1)
-        Feature (Variable | Volatile)
-        String_Index (9)    /* u'threshold' */
-        Usage_ID (Uint)
-        Report_Size (16)
-        Report_Count (1)
-        Feature (Variable | Volatile)
-        String_Index (10)   /* u'item_order' */
-        Usage_ID (Uint)
-        Report_Size (8)
-        Report_Count (10)
-        Feature (Variable | Volatile)
+    String_Index(7)         /* u'config'*/
+    Usage_ID(USAGE_OBJECT)
+    Collection(Report)
+        Report_ID(2)
+        String_Index(8)     /* u'timeout' */
+        Report_Count(1) Usage_ID(USAGE_UINT) Report_Size(64) Feature(Variable | Volatile)
+        String_Index(9)     /* u'threshold' */
+        Report_Count(1) Usage_ID(USAGE_UINT) Report_Size(16) Feature(Variable | Volatile)
+        String_Index(10)    /* u'item_order' */
+        Report_Count(10) Usage_ID(USAGE_UINT) Report_Size(8) Feature(Variable | Volatile)
     End_Collection
 
     /* Report ID:   17
@@ -140,20 +124,14 @@ Collection (Application)
      * Report Data: { 'timestamp': Uint64,
      *                'event': Uint8 }
      */
-    String_Index (11)       /* u'event' */
-    Usage_ID (Object)
-    Collection (Report)
-        Report_ID (17)
-        String_Index (4)    /* u'timestamp' */
-        Usage_ID (Uint)
-        Report_Size (64)
-        Report_Count (1)
-        Input (Variable)
-        String_Index (11)   /* u'event' */
-        Usage_ID (int /* default of 0x0002 */)
-        Report_Size (8)
-        Report_Count (1)
-        Input (Variable)
+    String_Index(11)        /* u'event' */
+    Usage_ID(Object)
+    Collection(Report)
+        Report_ID(17)
+        String_Index(4)     /* u'timestamp' */
+        Report_Count(1) Usage_ID(USAGE_UINT) Report_Size(64) Input(Variable)
+        String_Index(11)    /* u'event' */
+        Report_Count(1) Usage_ID(USAGE_INT) Report_Size(8) Input(Variable)
     End_Collection
 
     /* Report ID:   0x45
@@ -165,31 +143,25 @@ Collection (Application)
      * Report Type: Input
      * Report Data: { 'raw_values': [ Uint16, Uint16,... Uint16, Uint8, Uint8,... Uint8 ]}
      */
-    String_Index (42)       /* u'raw_values' */
-    Usage_ID (Object)
-    Collection (Report)
-        Report_ID (0x45)
-        String_Index (41)   /* u'toggle' */
-        Usage_ID (Uint)
-        Report_Size (8)
-        Report_Count (1)
-        Output (Variable | Volatile) /* Output report of 1x Uint8 */
-        String_Index (42)   /* u'raw_values' */
-        Usage_ID (Array)    /* Putting multiple Inputs into an array */
-        Collection (Physical)
-            Usage_ID (Uint)
-            Report_Size (16)
-            Report_Count (10)
-            Input (Variable | Buffered_Bytes)
-            Usage_ID (Uint)
-            Report_Size (8)
-            Report_Count (10)   /* Technically redundant, but explicit is better than implicit. */
-            Input (Variable | Buffered_Bytes) /* Input report of 10x Uint16, 10x Uint8 */
+    String_Index(42)            /* u'raw_values' */
+    Usage_ID(Object)
+    Collection(Report)
+        Report_ID(0x45)
+        String_Index(41)        /* u'toggle' */
+        Report_Count(1) Usage_ID(USAGE_UINT) Report_Size(8) Output(Variable | Volatile) /* Output report of 1x Uint8 */
+        String_Index(42)        /* u'raw_values' */
+        Usage_ID(USAGE_ARRAY)   /* Putting multiple Inputs into an array */
+        Collection(Physical)
+            /* Input report of 10x Uint16, 10x Uint8 */
+            Report_Count(10) Usage_ID(USAGE_UINT) Report_Size(16) Input(Variable | Buffered_Bytes)
+            Report_Count(10) Usage_ID(USAGE_UINT) Report_Size(8) Input(Variable | Buffered_Bytes)
         End_Collection
     End_Collection
 End_Collection
 ```
-Javascript API:
+Javascript Library Example
+--------------------------
+Connecting to the device defined above:
 ```javascript
 let device = await navigator.simpleHID.connect();     /* Pop-up window prompts user to select device */
 

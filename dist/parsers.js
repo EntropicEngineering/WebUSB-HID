@@ -20,7 +20,7 @@ const assert = (func, message) => {
                 return value;
             }
             else {
-                throw new Error(message + `: ${hex(value)}`);
+                throw new Error(message + `: ${typeof value === 'number' ? hex(value) : value}`);
             }
         }
     };

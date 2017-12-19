@@ -19,9 +19,7 @@ import {
     Padding,
     Branch,
     Repeat,
-    Parent,
     hex,
-    Decoder,
     Encoded_Map,
     Encoded
 } from 'binary-structures';
@@ -40,12 +38,12 @@ export const Platform_UUIDs = {
 /* Utility functions */
 const assert = (func: (data: Encoded) => boolean, message: string) => {
     return {
-        decode: (value: number): number => {
+        decode: <T extends Encoded>(value: T): T => {
             const result = func(value);
             if ( result ) {
                 return value;
             } else {
-                throw new Error(message + `: ${hex(value)}`)
+                throw new Error(message + `: ${typeof value === 'number' ? hex(value) : value}`)
             }
         }
     }

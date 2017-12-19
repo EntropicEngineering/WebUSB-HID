@@ -56,7 +56,7 @@ type Reports = Map<HID.Request_Report_Type | 'input' | 'output' | 'feature', Map
  * Default Export *
  ******************/
 
-export default class Device {
+export class Device {
     constructor(...filters: WebUSB.USBDeviceFilter[]) {
         this._filters = filters;
     }
@@ -340,10 +340,10 @@ export default class Device {
                 [HID.Report_Item_Type.Local, empty_local_state()],
             ]);
 
-            function add_raw_tags(item: Parsed) {
+            const add_raw_tags = (item: Parsed) => {
                 /* Strips 'type', 'tag', and 'size' from item, then adds whatever is left to the correct state table */
                 states.get(item.type as HID.Report_Item_Type)!.update(Object.entries(item).slice(3));
-            }
+            };
 
             const data_field_main_item_types = [HID.Report_Main_Item_Tag.Input, HID.Report_Main_Item_Tag.Output, HID.Report_Main_Item_Tag.Feature];
 

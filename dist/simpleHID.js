@@ -38,7 +38,7 @@ export class DescriptorError extends Error {
 /******************
  * Default Export *
  ******************/
-export default class Device {
+export class Device {
     constructor(...filters) {
         this._interface_id = 0;
         this._configuration_id = 1;
@@ -283,10 +283,10 @@ export default class Device {
                 [1 /* Global */, new Map()],
                 [2 /* Local */, empty_local_state()],
             ]);
-            function add_raw_tags(item) {
+            const add_raw_tags = (item) => {
                 /* Strips 'type', 'tag', and 'size' from item, then adds whatever is left to the correct state table */
                 states.get(item.type).update(Object.entries(item).slice(3));
-            }
+            };
             const data_field_main_item_types = [8 /* Input */, 9 /* Output */, 11 /* Feature */];
             for (const item of this.report_descriptor.items) {
                 switch (item.type) {

@@ -20,7 +20,7 @@ export declare class DescriptorError extends Error {
 /******************
  * Default Export *
  ******************/
-export default class Device {
+export declare class Device {
     constructor(...filters: WebUSB.USBDeviceFilter[]);
     private _interface_id;
     private _configuration_id;

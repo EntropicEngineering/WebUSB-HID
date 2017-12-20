@@ -4,6 +4,7 @@ import * as HID from './HID_data';
 import * as USB from './USB_data';
 
 import {
+    inspect,
     Pass,
     Binary_Map,
     Byte_Buffer,
@@ -23,10 +24,6 @@ import {
     Encoded_Map,
     Encoded
 } from 'binary-structures';
-
-/* Browser imports. Uncomment in generated js file. */
-// import './wrapped/improved-map.js'
-// import { Pass, Binary_Map, Byte_Buffer, Bits, Uint, Uint8, Uint16LE, Uint32LE, Int8, Int16LE, Int32LE, Embed, Padding, Branch, Repeat, hex } from './wrapped/binary-structures.js';
 
 export const Platform_UUIDs = {
     /* python -c "import uuid;print(', '.join(map(hex, uuid.UUID('3408b638-09a9-47a0-8bfd-a0768815b665').bytes_le)))" */
@@ -60,15 +57,15 @@ export interface Parsed {
 }
 
 /* Utility Parsers */
-let null_parser = Pass;
+let null_parser = Embed(Pass);
 
 let BCD_version = Binary_Map({ decode })
-    .set('major', Uint8)
+    .set('patch', Bits(4))
     .set('minor', Bits(4))
-    .set('patch', Bits(4));
+    .set('major', Uint8);
 
 /* HID Report Parsers */
-let input_ouput_feature_size_1 = Binary_Map()
+let input_ouput_feature_size_1 = Embed(Binary_Map()
     .set('data_or_constant', Bits(1))
     .set('array_or_variable', Bits(1))
     .set('absolute_or_relative', Bits(1))
@@ -76,17 +73,17 @@ let input_ouput_feature_size_1 = Binary_Map()
     .set('linear_or_nonlinear', Bits(1))
     .set('preferred_state_or_no_preferred', Bits(1))
     .set('no_null_position_or_null_state', Bits(1))
-    .set('not_volatile_or_volatile', Bits(1));
+    .set('not_volatile_or_volatile', Bits(1)));
 
-let input_output_feature_size_2 = Binary_Map()
+let input_output_feature_size_2 = Embed(Binary_Map()
     .set('embed byte 1', Embed(input_ouput_feature_size_1))
     .set('bit_field_or_buffered_bytes', Bits(1))
     /* Everything following in byte is reserved and should be 0, thus it's ignored. */
-    .set('ignored', Padding({ bits: 7 }));
+    .set('ignored', Padding({ bits: 7 })));
 
-let input_output_feature_size_4 = Binary_Map()
+let input_output_feature_size_4 = Embed(Binary_Map()
     .set('embed bytes 1-2', Embed(input_output_feature_size_2))
-    .set('padding', Padding({ bytes: 2 }));
+    .set('padding', Padding({ bytes: 2 })));
 
 let input_output_feature_item = Branch(
     {
@@ -108,21 +105,21 @@ let collection = Branch({
 let usage = (default_global = true, local_item = "usage_id") => Branch({
     chooser: get('size'),
     choices: {
-        1: Binary_Map().set(default_global ? 'usage_page' : local_item, Uint8),
-        2: Binary_Map().set(default_global ? 'usage_page' : local_item, Uint16LE),
-        3: Binary_Map().set(local_item, Uint16LE).set('usage_page', Uint16LE)
+        1: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Uint8)),
+        2: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Uint16LE)),
+        3: Embed(Binary_Map().set(local_item, Uint16LE).set('usage_page', Uint16LE))
     }
 });
 
-let sized_int = (name: string) => Binary_Map().set(name, Branch({
+let sized_int = (name: string) => Embed(Binary_Map().set(name, Branch({
     chooser: get('size'),
     choices: { 1: Int8, 2: Int16LE, 3: Int32LE }
-}));
+})));
 
-let sized_uint = (name: string) => Binary_Map().set(name, Branch({
+let sized_uint = (name: string) => Embed(Binary_Map().set(name, Branch({
     chooser: get('size'),
     choices: { 1: Uint8, 2: Uint16LE, 3: Uint32LE }
-}));
+})));
 
 // let sized_uint = (name: string): Parser => {
 //     return new Parser()
@@ -157,7 +154,7 @@ let global_item = Branch({
         [HID.Report_Global_Item_Tag.Physical_Minimum]: sized_int('physical_minimum'),
         [HID.Report_Global_Item_Tag.Physical_Maximum]: sized_int('physical_maximum'),
         /* Parsing unit information left as an exercise to the reader. */
-        [HID.Report_Global_Item_Tag.Unit_Exponent]: Binary_Map().set('unit_exponent', Uint(8, {
+        [HID.Report_Global_Item_Tag.Unit_Exponent]: Embed(Binary_Map().set('unit_exponent', Uint(8, {
             decode: (value: number) => {
                 value &= 0xF;
                 /* Only the first nibble is used */
@@ -167,10 +164,10 @@ let global_item = Branch({
                 }
                 return value;
             }
-        })),
-        [HID.Report_Global_Item_Tag.Unit]: Binary_Map().set('unit', Uint32LE),
+        }))),
+        [HID.Report_Global_Item_Tag.Unit]: Embed(Binary_Map().set('unit', Uint32LE)),
         [HID.Report_Global_Item_Tag.Report_Size]: sized_uint('report_size'),
-        [HID.Report_Global_Item_Tag.Report_ID]: Binary_Map().set('report_id', Uint8),
+        [HID.Report_Global_Item_Tag.Report_ID]: Embed(Binary_Map().set('report_id', Uint8)),
         [HID.Report_Global_Item_Tag.Report_Count]: sized_uint('report_count'),
         [HID.Report_Global_Item_Tag.Push]: null_parser,
         [HID.Report_Global_Item_Tag.Pop]: null_parser
@@ -204,22 +201,24 @@ let short_item = Branch({
     }
 });
 
-let long_item = Binary_Map()
+let long_item = Embed(Binary_Map()
     .set('data_size', Uint8)
     .set('long_item_tag', Uint(8, assert((tag: number) => ( tag >= 0xF0 ), "Invalid long_item_tag")))
-    .set('data', Byte_Buffer(get('data_size')));
+    .set('data', Byte_Buffer(get('data_size'))));
 
 /* exports */
 export let HID_item = Binary_Map({ decode })
     .set('size', Bits(2))
     .set('type', Bits(2))
     .set('tag', Bits(4))
-    .set('The rest', Embed(Branch({
+    .set('The rest', Branch({
         /* context.tag << 4 | context.type << 2 | context.size */
-        chooser: (context: Map<string, number>) => context.get('tag')! * 16 + context.get('type')! * 4 + context.get('size')!,
+        chooser: (context: Map<string, number>) =>{
+            return context.get('tag')! * 16 + context.get('type')! * 4 + context.get('size')!;
+        },
         choices: { 0b11111110: long_item },
         default_choice: short_item
-    })));
+    }));
 
 export let HID_descriptor = Binary_Map({ decode })
     .set('length', Uint8)
@@ -269,10 +268,10 @@ let simpleHID = Binary_Map()
     .set(USAGE.object, Uint16LE)
     .set(USAGE.array, Uint16LE);
 
-let platform_capability = Binary_Map()
+let platform_capability = Embed(Binary_Map()
     .set('reserved', Uint(8, assert((v: number) => v === 0, "Invalid reserved value")))
     .set('uuid', Repeat({ count: 16 }, Uint8))
-    .set('platform', Embed(Branch({
+    .set('platform', Branch({
         chooser: (context: Encoded_Map) => {
             const UUID = context.get('uuid') as Array<number>;
             for ( let [index, uuid] of [Platform_UUIDs.WebUSB, Platform_UUIDs.SimpleHID].entries() ) {
@@ -284,21 +283,21 @@ let platform_capability = Binary_Map()
             return -1
         },
         choices: {
-            0: Binary_Map().set('webusb', webusb),
-            1: Binary_Map().set('simpleHID', simpleHID)
+            0: Embed(Binary_Map().set('webusb', webusb)),
+            1: Embed(Binary_Map().set('simpleHID', simpleHID))
         },
-        default_choice: Binary_Map().set('unknown_platform', Byte_Buffer((context: Encoded_Map) => context.get('length') as number - 20))
+        default_choice: Embed(Binary_Map().set('unknown_platform', Byte_Buffer((context: Encoded_Map) => context.get('length') as number - 20)))
     })));
 
 let capability_descriptors = Binary_Map({ decode })
     .set('length', Uint8)
     .set('descriptor_type', Uint(8, assert((data: number) => data === USB.Descriptor_Type.DEVICE_CAPABILITY, "Incorrect descriptor type, should be DEVICE CAPABILITY")))
     .set('type', Uint(8, assert((data: number) => data > 0 && data < 0x0D, "Invalid device capability type")))
-    .set('capability', Embed(Branch({
+    .set('capability', Branch({
         chooser: get('type'),
         choices: { [USB.Capability_Type.PLATFORM]: platform_capability },
-        default_choice: Binary_Map().set('unknown_capability', Byte_Buffer((context: Encoded_Map) => context.get('length') as number - 3))
-    })));
+        default_choice: Embed(Binary_Map().set('unknown_capability', Byte_Buffer((context: Encoded_Map) => context.get('length') as number - 3)))
+    }));
 
 export let BOS_descriptor = Binary_Map({ decode })
     .set('length', Uint8)

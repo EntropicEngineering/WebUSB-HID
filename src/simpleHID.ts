@@ -4,18 +4,12 @@
  * USB HID utility for WebUSB.
  */
 
-/* Typescript imports. Comment out in generated js file. */
 import 'improved-map';
 import {Binary_Map, Repeat, Uint8} from 'binary-structures';
 
 import * as HID from './HID_data';
 import * as USB from './USB_data';
 import {BOS_descriptor, HID_descriptor, HID_item, languages_string_descriptor, string_descriptor, USAGE, Data, Parsed, decode} from './parsers';
-
-/* Browser imports. Uncomment in generated js file. */
-// import "./wrapped/improved-map.js"
-// import {BOS_descriptor, HID_descriptor, HID_item, languages_string_descriptor, string_descriptor, decode} from './parsers.js';
-// import {Binary_Map, Repeat, Uint8} from './wrapped/binary-structures.js';
 
 /*************
  * Utilities *
@@ -159,7 +153,6 @@ export class Device {
                 value: USB.Descriptor_Type.BOS * 256,
                 index: 0
             }, 5 /* BOS header size */));
-            console.log(hex_buffer(data.buffer));
             let total_length = data.getUint16(2, true);
             data = Device.verify_transfer(await this.webusb_device!.controlTransferIn({
                 requestType: "standard",
@@ -295,6 +288,7 @@ export class Device {
             usage_map.set(USAGE.array, null);
 
             for (const descriptor of <Array<Parsed>>this.BOS_descriptor!.capability_descriptors) {
+                console.log(typeof descriptor);
                 if (descriptor.hasOwnProperty('simpleHID')) {
                     const d = descriptor.simpleHID as Parsed;
                     if ((<Parsed>d.version).major > 1) {
@@ -468,22 +462,12 @@ export class Device {
     report_descriptor_parser(bytes: number) {
         return Binary_Map({decode})
             .set('items', Repeat({bytes}, HID_item));
-        // new Parser()
-        //     .array('items', {
-        //         type: HID_item,
-        //         lengthInBytes: length
-        //     });
     }
 
     /* Interpreting Physical Descriptor left as an exercise for the reader. */
     physical_descriptor_parser(bytes: number) {
         return Binary_Map({decode})
             .set('bytes', Repeat({bytes}, Uint8));
-        // new Parser()
-        //     .array('bytes', {
-        //         type: 'uint8',
-        //         lengthInBytes: bytes
-        //     });
     }
 
     /***************************
@@ -592,9 +576,7 @@ export class Device {
             value: HID.Request_Report_Type.Feature * 256 + report_id,
             index: this._interface_id
         }, length);
-        let report_data = Device.verify_transfer(result);
-
-        return report_data
+        return Device.verify_transfer(result);
     }
 
     async set_feature(report: number | string | null, ...data: Array<number | string>) {

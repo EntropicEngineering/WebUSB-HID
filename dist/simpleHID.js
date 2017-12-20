@@ -3,16 +3,11 @@
  *
  * USB HID utility for WebUSB.
  */
-/* Typescript imports. Comment out in generated js file. */
 import 'improved-map';
 import { Binary_Map, Repeat, Uint8 } from 'binary-structures';
 import * as HID from './HID_data';
 import * as USB from './USB_data';
 import { BOS_descriptor, HID_descriptor, HID_item, languages_string_descriptor, string_descriptor, decode } from './parsers';
-/* Browser imports. Uncomment in generated js file. */
-// import "./wrapped/improved-map.js"
-// import {BOS_descriptor, HID_descriptor, HID_item, languages_string_descriptor, string_descriptor, decode} from './parsers.js';
-// import {Binary_Map, Repeat, Uint8} from './wrapped/binary-structures.js';
 /*************
  * Utilities *
  *************/
@@ -140,7 +135,6 @@ export class Device {
                 value: 15 /* BOS */ * 256,
                 index: 0
             }, 5 /* BOS header size */));
-            console.log(hex_buffer(data.buffer));
             let total_length = data.getUint16(2, true);
             data = Device.verify_transfer(await this.webusb_device.controlTransferIn({
                 requestType: "standard",
@@ -247,6 +241,7 @@ export class Device {
             usage_map.set("object" /* object */, null);
             usage_map.set("array" /* array */, null);
             for (const descriptor of this.BOS_descriptor.capability_descriptors) {
+                console.log(typeof descriptor);
                 if (descriptor.hasOwnProperty('simpleHID')) {
                     const d = descriptor.simpleHID;
                     if (d.version.major > 1) {
@@ -405,21 +400,11 @@ export class Device {
     report_descriptor_parser(bytes) {
         return Binary_Map({ decode })
             .set('items', Repeat({ bytes }, HID_item));
-        // new Parser()
-        //     .array('items', {
-        //         type: HID_item,
-        //         lengthInBytes: length
-        //     });
     }
     /* Interpreting Physical Descriptor left as an exercise for the reader. */
     physical_descriptor_parser(bytes) {
         return Binary_Map({ decode })
             .set('bytes', Repeat({ bytes }, Uint8));
-        // new Parser()
-        //     .array('bytes', {
-        //         type: 'uint8',
-        //         lengthInBytes: bytes
-        //     });
     }
     /***************************
      * Public Attribute Access *

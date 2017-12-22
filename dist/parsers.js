@@ -185,7 +185,7 @@ export let string_descriptor = Binary_Map({ decode })
     .set('length', Uint8)
     .set('type', Uint(8, assert((value) => value === 3 /* STRING */, "Invalid string descriptor type")))
     .set('string', Byte_Buffer((context) => (context.get('length') - 2), { decode: (buffer) => text_decoder.decode(buffer) }));
-let webusb = Binary_Map()
+let webusb = Binary_Map({ decode })
     .set('version', BCD_version)
     .set('vendor_code', Uint8)
     .set('landing_page_index', Uint8);
@@ -201,7 +201,7 @@ export var USAGE;
     USAGE["object"] = "object";
     USAGE["array"] = "array";
 })(USAGE || (USAGE = {}));
-let simpleHID = Binary_Map()
+let simpleHID = Binary_Map({ decode })
     .set('version', BCD_version)
     .set("page" /* page */, Uint(16, { little_endian: true, decode: (usage) => usage >= 0xFF00 }))
     .set("application" /* application */, Uint16LE)

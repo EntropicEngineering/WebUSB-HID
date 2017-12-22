@@ -486,8 +486,7 @@ export class Device {
             value: 3 /* Feature */ * 256 + report_id,
             index: this._interface_id
         }, length);
-        let report_data = Device.verify_transfer(result);
-        return report_data;
+        return Device.verify_transfer(result);
     }
     async set_feature(report, ...data) {
         this.verify_connection();

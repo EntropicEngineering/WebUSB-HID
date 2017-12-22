@@ -239,7 +239,7 @@ export let string_descriptor = Binary_Map({ decode })
     .set('type', Uint(8, assert((value: number) => value === USB.Descriptor_Type.STRING, "Invalid string descriptor type")))
     .set('string', Byte_Buffer((context: Encoded_Map) => ( context.get('length') as number - 2 ), { decode: (buffer: ArrayBuffer) => text_decoder.decode(buffer) }));
 
-let webusb = Binary_Map()
+let webusb = Binary_Map({ decode })
     .set('version', BCD_version)
     .set('vendor_code', Uint8)
     .set('landing_page_index', Uint8);
@@ -256,7 +256,7 @@ export const enum USAGE {
     array = 'array'
 }
 
-let simpleHID = Binary_Map()
+let simpleHID = Binary_Map({ decode })
     .set('version', BCD_version)
     .set(USAGE.page, Uint(16, { little_endian: true, decode: (usage: number) => usage >= 0xFF00 }))
     .set(USAGE.application, Uint16LE)

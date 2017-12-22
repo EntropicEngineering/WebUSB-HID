@@ -12,22 +12,22 @@ and Platform headers).
 SimpleHID BOS platform descriptor has UUID of 'a8adf97c-6a20-48e4-a97c-79978eec00c7'.
 
 CapabilityData, 20 bytes (Platform descriptor total of 40 bytes):
-* bcdVersion, 2 bytes, binary-coded-decimal version number (0.2.0)
+* bcdVersion, 2 bytes, binary-coded-decimal version number (1.0.0)
 * Vendor Usage Page for SimpleHID data-type mapping (default to `0xFFAA`), 2 bytes
 * Usage ID applied to Application-type Collections to indicate SimpleHID compatibility, 2 bytes (default `0x0000`)
-* Usage ID for `Uint`, 2 bytes (default `0x0001`)
-    * Valid Report Sizes for Usage: 8, 16, 32, 64
-* Usage ID for `int`, 2 bytes (default `0x0002`)
-    * Valid Report Sizes for Usage: 8, 16, 32
-* Usage ID for `float`, 2 bytes (default `0x0003`)
-    * Valid Report Sizes for Usage: 32, 64
-* Usage ID for bit field, 2 bytes (default `0x0004`)
-    * Valid Report Sizes for Usage: <= 32
-* Usage ID for `utf8`, 2 bytes (default `0x0005`)
-* Usage ID for report data type of `Object`, 2 bytes (default `0x0006`)
-    * Only valid when applied to (declared before) Collection items with Report type.
-* Usage ID for report data type of `Array`, 2 bytes (default `0x0007`)
+* Usage ID for report data type of `Array`, 2 bytes (default `0x0001`)
     * Only valid when applied to Collection items with Report, Logical, or Physical types.
+* Usage ID for report data type of `Object`, 2 bytes (default `0x0002`)
+    * Only valid when applied to (declared before) Collection items with Report type.
+* Usage ID for bit field, 2 bytes (default `0x0003`)
+    * Valid Report Sizes for Usage: <= 32
+* Usage ID for `Uint`, 2 bytes (default `0x0004`)
+    * Valid Report Sizes for Usage: 8, 16, 32, 64
+* Usage ID for `int`, 2 bytes (default `0x0005`)
+    * Valid Report Sizes for Usage: 8, 16, 32
+* Usage ID for `float`, 2 bytes (default `0x0006`)
+    * Valid Report Sizes for Usage: 32, 64
+* Usage ID for `utf8`, 2 bytes (default `0x0007`)
 
 Application-type Collections in a Report Descriptor will be ignored unless
 they are tagged with (preceded by) the Usage Page & ID specified in the
@@ -62,80 +62,81 @@ split data between Report IDs to create additional smaller reports.
 Example SimpleHID Report Descriptor
 -----------------------------------
 ```c
-Usage_Page (SimpleHID_vendor_page /* default of 0xFFAA */)
-Usage_ID (SimpleHID_application_collection)    /* default of 0x0000 */
+Usage_Page (SimpleHID_vendor_page)          /* default of 0xFFAA */
+Usage_ID (SimpleHID_application_collection) /* default of 0x0000 */
 Collection (Application)
 
-    /* Report ID:   1
+    /* Report Name: 'timestamp'
+     * Report ID:   1
      * Report Type: Output
-     * Report Name: 'timestamp'
      * Report Data: [ Uint64 ]
      */
+    Usage_ID(USAGE_ARRAY)       /* default of 0x0001, can be omitted as Array is default */
     String_Index(4)             /* u'timestamp' */
     Collection(Report)
         Report_ID(1)
-        Usage_ID(USAGE_UINT)    /* default of 0x0001 */
+        Usage_ID(USAGE_UINT)    /* default of 0x0004 */
         Report_Size(64)
         Report_Count(1)         /* 1x Uint64 */
-        Output(Variable | Volatile)
+        Output(Variable)
     End_Collection
 
-    /* Report ID:   1
+    /* Report Name: 'status'
+     * Report ID:   1
      * Report Type: Input
-     * Report Name: 'status'
      * Report Data: { 'timestamp': Uint64,
      *                'serial_number': Uint32,
      *                'status': Uint8[4] }
      */
+    Usage_ID(USAGE_OBJECT)  /* default of 0x0002 */
     String_Index(5)         /* u'status' */
-    Usage_ID(USAGE_OBJECT)  /* default of 0x0006 */
     Collection(Report)
         Report_ID(1)        /* Same Report ID as 'timestamp', but this is an Input */
         String_Index(4)     /* u'timestamp' */
-        Report_Count(1) Usage_ID(USAGE_UINT) Report_Size(64) Input(Variable)                    /* 1x Uint64 */
+        Usage_ID(USAGE_UINT) Report_Size(64) Report_Count(1) Input(Variable)        /* 1x Uint64 */
         String_Index(6)     /* u'serial_number' */
-        Report_Count(1) Usage_ID(USAGE_UINT) Report_Size(32) Input(Variable)                    /* 1x Uint32 */
+        Usage_ID(USAGE_UINT) Report_Size(32) Report_Count(1) Input(Variable)        /* 1x Uint32 */
         String_Index(5)     /* u'status */
-        Report_Count(4) Usage_ID(USAGE_UINT) Report_Size(8) Input(Variable | Buffered_Bytes)    /* 4x Uint8 */
+        Usage_ID(USAGE_UINT) Report_Size(8) Report_Count(4) Input(Variable)         /* 4x Uint8 */
     End_Collection
 
-    /* Report ID:   2
+    /* Report Name: 'config'
+     * Report ID:   2
      * Report Type: Feature
-     * Report Name: 'config'
      * Report Data: { 'timeout': Uint64,
      *                'threshold': Uint16,
      *                'item_order': Uint8[10] }
      */
-    String_Index(7)         /* u'config'*/
     Usage_ID(USAGE_OBJECT)
+    String_Index(7)         /* u'config'*/
     Collection(Report)
         Report_ID(2)
         String_Index(8)     /* u'timeout' */
-        Report_Count(1) Usage_ID(USAGE_UINT) Report_Size(64) Feature(Variable | Volatile)
+        Usage_ID(USAGE_UINT) Report_Size(64) Report_Count(1) Feature(Variable | Volatile)
         String_Index(9)     /* u'threshold' */
-        Report_Count(1) Usage_ID(USAGE_UINT) Report_Size(16) Feature(Variable | Volatile)
+        Usage_ID(USAGE_UINT) Report_Size(16) Report_Count(1) Feature(Variable | Volatile)
         String_Index(10)    /* u'item_order' */
-        Report_Count(10) Usage_ID(USAGE_UINT) Report_Size(8) Feature(Variable | Volatile)
+        Usage_ID(USAGE_UINT) Report_Size(8) Report_Count(10) Feature(Variable | Volatile)
     End_Collection
 
-    /* Report ID:   17
+    /* Report Name: 'event'
+     * Report ID:   17
      * Report Type: Input
-     * Report Name: 'event'
      * Report Data: { 'timestamp': Uint64,
      *                'event': Uint8 }
      */
+    Usage_ID(USAGE_OBJECT)
     String_Index(11)        /* u'event' */
-    Usage_ID(Object)
     Collection(Report)
         Report_ID(17)
         String_Index(4)     /* u'timestamp' */
-        Report_Count(1) Usage_ID(USAGE_UINT) Report_Size(64) Input(Variable)
+        Usage_ID(USAGE_UINT) Report_Size(64) Report_Count(1) Input(Variable)
         String_Index(11)    /* u'event' */
-        Report_Count(1) Usage_ID(USAGE_INT) Report_Size(8) Input(Variable)
+        Usage_ID(USAGE_INT) Report_Size(8) Report_Count(1) Input(Variable)
     End_Collection
 
-    /* Report ID:   0x45
-     * Report Name: 'raw_values'
+    /* Report Name: 'raw_values'
+     * Report ID:   0x45
      *
      * Report Type: Output
      * Report Data: { 'toggle': Uint8 }
@@ -143,18 +144,18 @@ Collection (Application)
      * Report Type: Input
      * Report Data: { 'raw_values': [ Uint16, Uint16,... Uint16, Uint8, Uint8,... Uint8 ]}
      */
+    Usage_ID(USAGE_OBJECT)
     String_Index(42)            /* u'raw_values' */
-    Usage_ID(Object)
     Collection(Report)
         Report_ID(0x45)
         String_Index(41)        /* u'toggle' */
-        Report_Count(1) Usage_ID(USAGE_UINT) Report_Size(8) Output(Variable | Volatile) /* Output report of 1x Uint8 */
+        Usage_ID(USAGE_UINT) Report_Size(8) Report_Count(1) Output(Variable | Volatile) /* Output report of 1x Uint8 */
         String_Index(42)        /* u'raw_values' */
         Usage_ID(USAGE_ARRAY)   /* Putting multiple Inputs into an array */
         Collection(Physical)
             /* Input report of 10x Uint16, 10x Uint8 */
-            Report_Count(10) Usage_ID(USAGE_UINT) Report_Size(16) Input(Variable | Buffered_Bytes)
-            Report_Count(10) Usage_ID(USAGE_UINT) Report_Size(8) Input(Variable | Buffered_Bytes)
+            Usage_ID(USAGE_UINT) Report_Size(16) Report_Count(10) Input(Variable | Buffered_Bytes)
+            Usage_ID(USAGE_UINT) Report_Size(8) Report_Count(10) Input(Variable | Buffered_Bytes)
         End_Collection
     End_Collection
 End_Collection

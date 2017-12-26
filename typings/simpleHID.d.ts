@@ -67,8 +67,8 @@ export declare class Device {
     connect(...filters: WebUSB.USBDeviceFilter[]): Promise<Device>;
     static connect(...filters: WebUSB.USBDeviceFilter[]): Promise<Device>;
     receive(): Promise<void>;
-    send(report: number | string | null, ...data: Array<number | string>): Promise<void>;
-    get_feature(report: number | string | null | undefined): Promise<DataView>;
+    send(report?: number | string, ...data: Array<number | string>): Promise<void>;
+    get_feature(report?: number | string): Promise<DataView>;
     set_feature(report: number | string | null, ...data: Array<number | string>): Promise<void>;
     static get_HID_class_descriptor(device: WebUSB.USBDevice, type: number, index: number, length: number, interface_id: number, request: HID.Descriptor_Request): Promise<DataView>;
 }

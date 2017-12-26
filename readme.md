@@ -29,7 +29,7 @@ CapabilityData, 20 bytes (Platform descriptor total of 40 bytes):
     * Valid Report Sizes for Usage: 32, 64
 * Usage ID for `utf8`, 2 bytes (default `0x0007`)
 
-Application-type Collections in a Report Descriptor will be ignored unless
+Top-level Application-type Collections in a Report Descriptor will be ignored unless
 they are tagged with (preceded by) the Usage Page & ID specified in the
 BOS platform descriptor.
 

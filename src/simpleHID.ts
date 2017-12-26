@@ -134,9 +134,9 @@ export class Device {
         }, 255));
         let result: string | Array<number>;
         if (index === 0) {
-            result = <Array<number>>languages_string_descriptor.parse(new DataView(data.buffer)).data.LANGID;
+            result = languages_string_descriptor.parse(new DataView(data.buffer)).data.LANGID as Array<number>;
         } else {
-            result = <string>string_descriptor.parse(new DataView(data.buffer)).data.string;
+            result = string_descriptor.parse(new DataView(data.buffer)).data.string as string;
         }
         this._string_descriptors.get(this._interface_id)!.set(index, result);
         return result;
@@ -287,7 +287,7 @@ export class Device {
             usage_map.set(USAGE.object, null);
             usage_map.set(USAGE.array, null);
 
-            for (const descriptor of <Array<Parsed>>this.BOS_descriptor!.capability_descriptors) {
+            for (const descriptor of this.BOS_descriptor!.capability_descriptors as Array<Parsed>) {
                 console.log(typeof descriptor);
                 if (descriptor.hasOwnProperty('simpleHID')) {
                     const d = descriptor.simpleHID as Parsed;
@@ -295,9 +295,9 @@ export class Device {
                         throw new DescriptorError(`Incompatible WebUSB-HID version: ${(<Parsed>d.version).major}`)
                     }
                     for (const usage of usage_map.keys()) {
-                        const page = d[usage];
+                        const page = d[usage] as number | undefined;
                         if (page !== undefined) {
-                            usage_map.set(usage, <number>page).set(<number>page, usage)
+                            usage_map.set(usage, page).set(page, usage)
                         }
                     }
                     break;
@@ -341,7 +341,7 @@ export class Device {
 
             const data_field_main_item_types = [HID.Report_Main_Item_Tag.Input, HID.Report_Main_Item_Tag.Output, HID.Report_Main_Item_Tag.Feature];
 
-            for (const item of <Array<Parsed>>this.report_descriptor!.items) {
+            for (const item of this.report_descriptor!.items as Array<Parsed>) {
                 switch (item.type as HID.Report_Item_Type) {
                     case HID.Report_Item_Type.Global:
                         switch (item.tag as HID.Report_Global_Item_Tag) {
@@ -560,15 +560,15 @@ export class Device {
         throw new Error("Not Implemented");
     }
 
-    async send(report: number | string | null, ...data: Array<number | string>) {
+    async send(report?: number | string, ...data: Array<number | string>) {
         this.verify_connection();
         throw new Error("Not Implemented");
     }
 
-    async get_feature(report: number | string | null | undefined) {
+    async get_feature(report?: number | string) {
         this.verify_connection();
         let report_id = await this.get_report_id(report, HID.Request_Report_Type.Feature);
-        let length = (<Report_Parser>this.reports[HID.Request_Report_Type.Feature]!.report_id).byte_length;
+        let length = (this.reports[HID.Request_Report_Type.Feature]!.report_id as Report_Parser).byte_length;
         let result = await this.webusb_device!.controlTransferIn({
             requestType: "class",
             recipient: "interface",

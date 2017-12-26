@@ -121,19 +121,6 @@ let sized_uint = (name: string) => Embed(Binary_Map().set(name, Branch({
     choices: { 1: Uint8, 2: Uint16LE, 3: Uint32LE }
 })));
 
-// let sized_uint = (name: string): Parser => {
-//     return new Parser()
-//         .choice('', {
-//             // tag: function() {return this.size as number},
-//             tag: 'size',
-//             choices: {
-//                 1: new Parser().uint8(name),
-//                 2: new Parser().endianess('little').uint16(name),
-//                 3: new Parser().endianess('little').uint32(name)
-//             }
-//         })
-// };
-
 let main_item = Branch({
     chooser: get('tag'),
     choices: {
@@ -258,7 +245,11 @@ export const enum USAGE {
 
 let simpleHID = Binary_Map({ decode })
     .set('version', BCD_version)
-    .set(USAGE.page, Uint(16, { little_endian: true, decode: (usage: number) => usage >= 0xFF00 }))
+    .set(USAGE.page, Uint(16, { little_endian: true, decode: (usage: number) => {
+        if ( usage >= 0xFF00 )
+            return usage;
+         throw new Error(`Invalid Vendor Usage page for SimpleHID Platform Descriptor: ${usage}`);
+    }}))
     .set(USAGE.application, Uint16LE)
     .set(USAGE.uint, Uint16LE)
     .set(USAGE.int, Uint16LE)

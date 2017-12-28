@@ -4,9 +4,9 @@
  * USB HID utility for WebUSB.
  */
 import 'improved-map';
-import { Binary_Map } from 'binary-structures';
+import { Binary_Array, Binary_Map } from 'binary-structures';
 import * as HID from './HID_data';
-import { Parsed } from './parsers';
+import { Data, Parsed } from './parsers';
 export declare class USBTransferError extends Error {
     constructor(message: string, status: WebUSB.USBTransferStatus);
     status: WebUSB.USBTransferStatus;
@@ -39,16 +39,16 @@ export declare class Device {
     get_string_descriptor(index: number, language_id?: number | undefined): Promise<string | number[] | undefined>;
     get_BOS_descriptor(): Promise<Parsed | undefined>;
     get_HID_descriptor(): Promise<Parsed | undefined>;
-    get_report_descriptor(): Promise<Parsed | undefined>;
-    get_physical_descriptor(index: number, length?: number | undefined): Promise<Parsed>;
+    get_report_descriptor(): Promise<Parsed[] | undefined>;
+    get_physical_descriptor(index: number, length?: number | undefined): Promise<Data>;
     build_reports(): Promise<any>;
     /**************************
      * External Parser Access *
      **************************/
     BOS_descriptor_parser(length: number): Binary_Map<any, any, {}>;
     HID_descriptor_parser(length: number): Binary_Map<any, any, {}>;
-    report_descriptor_parser(bytes: number): Binary_Map<any, any, {}>;
-    physical_descriptor_parser(bytes: number): Binary_Map<any, any, {}>;
+    report_descriptor_parser(bytes: number): Binary_Array<any, {}, {}>;
+    physical_descriptor_parser(bytes: number): Binary_Array<number, {}, {}>;
     /***************************
      * Public Attribute Access *
      ***************************/
@@ -56,8 +56,8 @@ export declare class Device {
     readonly configuration_id: number;
     readonly HID_descriptor: Parsed | undefined;
     readonly BOS_descriptor: Parsed | undefined;
-    readonly report_descriptor: Parsed | undefined;
-    readonly physical_descriptor: Parsed[] | undefined;
+    readonly report_descriptor: Parsed[] | undefined;
+    readonly physical_descriptor: Data[] | undefined;
     readonly reports: any;
     /******************
      * Public Methods *

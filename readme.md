@@ -17,6 +17,7 @@ CapabilityData, 20 bytes (Platform descriptor total of 40 bytes):
 * Usage ID applied to Application-type Collections to indicate SimpleHID compatibility, 2 bytes (default `0x0000`)
 * Usage ID for report data type of `Array`, 2 bytes (default `0x0001`)
     * Only valid when applied to Collection items with Report, Logical, or Physical types.
+    * Default report type is `Array`, so this can be omitted.
 * Usage ID for report data type of `Object`, 2 bytes (default `0x0002`)
     * Only valid when applied to (declared before) Collection items with Report type.
 * Usage ID for bit field, 2 bytes (default `0x0003`)

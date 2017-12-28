@@ -98,13 +98,14 @@ let input_output_feature_item = Branch(
 
 let collection = Branch({
     chooser: get('size'),
-    choices: { 0: null_parser },
-    default_choice: Uint(8, assert((value: number) => ( value < 0x07 ) || ( value > 0x7F ), 'Invalid collection type'))
+    choices: { 0: Embed(Binary_Map().set('collection', Padding(0, { decode: () => 0 }))) },
+    default_choice: Embed(Binary_Map().set('collection', Uint(8, assert((value: number) => ( value < 0x07 ) || ( value > 0x7F ), 'Invalid collection type'))))
 });
 
 let usage = (default_global = true, local_item = "usage_id") => Branch({
     chooser: get('size'),
     choices: {
+        0: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Padding(0, {decode: () => 0}))),
         1: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Uint8)),
         2: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Uint16LE)),
         3: Embed(Binary_Map().set(local_item, Uint16LE).set('usage_page', Uint16LE))
@@ -199,8 +200,8 @@ export let HID_item = Binary_Map({ decode })
     .set('type', Bits(2))
     .set('tag', Bits(4))
     .set('The rest', Branch({
-        /* context.tag << 4 | context.type << 2 | context.size */
         chooser: (context: Map<string, number>) =>{
+            /* context.tag << 4 | context.type << 2 | context.size */
             return context.get('tag')! * 16 + context.get('type')! * 4 + context.get('size')!;
         },
         choices: { 0b11111110: long_item },
@@ -251,13 +252,13 @@ let simpleHID = Binary_Map({ decode })
          throw new Error(`Invalid Vendor Usage page for SimpleHID Platform Descriptor: ${usage}`);
     }}))
     .set(USAGE.application, Uint16LE)
+    .set(USAGE.array, Uint16LE)
+    .set(USAGE.object, Uint16LE)
+    .set(USAGE.bits, Uint16LE)
     .set(USAGE.uint, Uint16LE)
     .set(USAGE.int, Uint16LE)
     .set(USAGE.float, Uint16LE)
-    .set(USAGE.bits, Uint16LE)
-    .set(USAGE.utf8, Uint16LE)
-    .set(USAGE.object, Uint16LE)
-    .set(USAGE.array, Uint16LE);
+    .set(USAGE.utf8, Uint16LE);
 
 let platform_capability = Embed(Binary_Map()
     .set('reserved', Uint(8, assert((v: number) => v === 0, "Invalid reserved value")))

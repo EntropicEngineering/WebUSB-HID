@@ -5,7 +5,7 @@
  */
 
 import 'improved-map';
-import {Binary_Map, Repeat, Uint8} from 'binary-structures';
+import {Binary_Array, Binary_Map, Repeat, Uint8} from 'binary-structures';
 
 import * as HID from './HID_data';
 import * as USB from './USB_data';
@@ -61,8 +61,8 @@ export class Device {
     protected webusb_device: WebUSB.USBDevice | undefined = undefined;
     private _HID_descriptors: Map<number, Parsed> = new Map();
     private _BOS_descriptors: Map<number, Parsed> = new Map();
-    private _report_descriptors: Map<number, Parsed> = new Map();
-    private _physical_descriptors: Map<number, Array<Parsed>> = new Map();
+    private _report_descriptors: Map<number, Array<Parsed>> = new Map();
+    private _physical_descriptors: Map<number, Array<Data>> = new Map();
     private _reports: Map<number, Reports> = new Map();
     private _string_descriptors: Map<number, Map<number, string | Array<number>>> = new Map();
 
@@ -203,8 +203,8 @@ export class Device {
             }
 
             /* Get Report descriptor from HID descriptor */
-            let reports = (<Array<{type: number, size: number}>>this.HID_descriptor!.descriptors)
-                .filter(({type, size}) => type === HID.Class_Descriptors.Report);
+            let reports = ( this.HID_descriptor!.descriptors as Array<{ type: number, size: number }> )
+                .filter(({ type }) => type === HID.Class_Descriptors.Report);
 
             if (reports.length > 1) {
                 throw new USBTransferError("Multiple Report descriptors specified in HID descriptor.", "ok");
@@ -220,7 +220,7 @@ export class Device {
                 throw new USBTransferError("Invalid HID descriptor length: " + hex_buffer(data.buffer), "ok");
             }
 
-            this._report_descriptors.set(this._interface_id, this.report_descriptor_parser(length).parse(new DataView(data.buffer)).data);
+            this._report_descriptors.set(this._interface_id, this.report_descriptor_parser(length).parse(new DataView(data.buffer)).data as Array<Parsed>);
         }
         return this.report_descriptor;
     }
@@ -257,7 +257,7 @@ export class Device {
                 throw new USBTransferError("Invalid HID descriptor length: " + hex_buffer(data.buffer), "ok");
             }
 
-            this.physical_descriptor![index] = this.physical_descriptor_parser(length).parse(new DataView(data.buffer)).data;
+            this.physical_descriptor![index] = this.physical_descriptor_parser(length).parse(new DataView(data.buffer)).data as Array<number>;
         }
         return this.physical_descriptor![index];
     }
@@ -288,7 +288,6 @@ export class Device {
             usage_map.set(USAGE.array, null);
 
             for (const descriptor of this.BOS_descriptor!.capability_descriptors as Array<Parsed>) {
-                console.log(typeof descriptor);
                 if (descriptor.hasOwnProperty('simpleHID')) {
                     const d = descriptor.simpleHID as Parsed;
                     if ((<Parsed>d.version).major > 1) {
@@ -341,7 +340,7 @@ export class Device {
 
             const data_field_main_item_types = [HID.Report_Main_Item_Tag.Input, HID.Report_Main_Item_Tag.Output, HID.Report_Main_Item_Tag.Feature];
 
-            for (const item of this.report_descriptor!.items as Array<Parsed>) {
+            for (const item of this.report_descriptor!) {
                 switch (item.type as HID.Report_Item_Type) {
                     case HID.Report_Item_Type.Global:
                         switch (item.tag as HID.Report_Global_Item_Tag) {
@@ -385,7 +384,7 @@ export class Device {
                                 add_raw_tags(item);
                                 break;
                             case HID.Report_Local_Item_Tag.String_Index:
-                                states.get(HID.Report_Item_Type.Local)!.get('string_stack').push(this.get_string_descriptor(<number>item.string_index));
+                                states.get(HID.Report_Item_Type.Local)!.get('string_stack').push(this.get_string_descriptor(item.string_index as number));
                                 break;
                             case HID.Report_Local_Item_Tag.Delimiter:
                                 let delimiter = item.delimiter as number;
@@ -413,18 +412,18 @@ export class Device {
                         switch (item.tag as HID.Report_Main_Item_Tag) {
                             case HID.Report_Main_Item_Tag.Collection:
                                 switch (item.collection) {
-                                    case undefined:     /* Zero bytes can be omitted */
-                                    case 0:             /* Physical collection */
+                                    case HID.Collection_Type.Physical:
                                         break;
-                                    case 1:             /* Application collection */
+                                    case HID.Collection_Type.Application:
                                         break;
-                                    case 2:             /* Logical collection */
+                                    case HID.Collection_Type.Logical:
                                         break;
-                                    case 3:             /* Report collection */
+                                    case HID.Collection_Type.Report:
                                         break;
-                                    case 4:             /* Named Array collection; I have no idea WTF this is supposed to do */
-                                    case 5:             /* Usage Switch collection; this application doesn't care */
-                                    default:            /* Reserved or Vendor collection values are ignored. */
+                                    case HID.Collection_Type.Named_Array:       /* I have no idea WTF this is supposed to do */
+                                    case HID.Collection_Type.Usage_Switch:      /* This application doesn't care */
+                                    case HID.Collection_Type.Usage_Modifier:    /* This application doesn't care */
+                                    default:                                    /* Reserved or Vendor collection values are ignored. */
                                         break;
                                 }
                                 break;
@@ -460,14 +459,12 @@ export class Device {
     }
 
     report_descriptor_parser(bytes: number) {
-        return Binary_Map({decode})
-            .set('items', Repeat({bytes}, HID_item));
+        return Repeat({bytes}, HID_item);
     }
 
     /* Interpreting Physical Descriptor left as an exercise for the reader. */
     physical_descriptor_parser(bytes: number) {
-        return Binary_Map({decode})
-            .set('bytes', Repeat({bytes}, Uint8));
+        return Repeat({bytes}, Uint8);
     }
 
     /***************************

@@ -4,10 +4,10 @@
  * USB HID utility for WebUSB.
  */
 import 'improved-map';
-import { Binary_Map, Repeat, Uint8 } from 'binary-structures';
+import { Repeat, Uint8 } from 'binary-structures';
 import * as HID from './HID_data';
 import * as USB from './USB_data';
-import { BOS_descriptor, HID_descriptor, HID_item, languages_string_descriptor, string_descriptor, decode } from './parsers';
+import { BOS_descriptor, HID_descriptor, HID_item, languages_string_descriptor, string_descriptor } from './parsers';
 /*************
  * Utilities *
  *************/
@@ -175,7 +175,7 @@ export class Device {
             }
             /* Get Report descriptor from HID descriptor */
             let reports = this.HID_descriptor.descriptors
-                .filter(({ type, size }) => type === 34 /* Report */);
+                .filter(({ type }) => type === 34 /* Report */);
             if (reports.length > 1) {
                 throw new USBTransferError("Multiple Report descriptors specified in HID descriptor.", "ok");
             }
@@ -241,7 +241,6 @@ export class Device {
             usage_map.set("object" /* object */, null);
             usage_map.set("array" /* array */, null);
             for (const descriptor of this.BOS_descriptor.capability_descriptors) {
-                console.log(typeof descriptor);
                 if (descriptor.hasOwnProperty('simpleHID')) {
                     const d = descriptor.simpleHID;
                     if (d.version.major > 1) {
@@ -283,7 +282,7 @@ export class Device {
                 states.get(item.type).update(Object.entries(item).slice(3));
             };
             const data_field_main_item_types = [8 /* Input */, 9 /* Output */, 11 /* Feature */];
-            for (const item of this.report_descriptor.items) {
+            for (const item of this.report_descriptor) {
                 switch (item.type) {
                     case 1 /* Global */:
                         switch (item.tag) {
@@ -356,17 +355,17 @@ export class Device {
                         switch (item.tag) {
                             case 10 /* Collection */:
                                 switch (item.collection) {
-                                    case undefined: /* Zero bytes can be omitted */
-                                    case 0:/* Physical collection */ 
+                                    case 0 /* Physical */:
                                         break;
-                                    case 1:/* Application collection */ 
+                                    case 1 /* Application */:
                                         break;
-                                    case 2:/* Logical collection */ 
+                                    case 2 /* Logical */:
                                         break;
-                                    case 3:/* Report collection */ 
+                                    case 3 /* Report */:
                                         break;
-                                    case 4: /* Named Array collection; I have no idea WTF this is supposed to do */
-                                    case 5: /* Usage Switch collection; this application doesn't care */
+                                    case 4 /* Named_Array */: /* I have no idea WTF this is supposed to do */
+                                    case 5 /* Usage_Switch */: /* This application doesn't care */
+                                    case 6 /* Usage_Modifier */: /* This application doesn't care */
                                     default:/* Reserved or Vendor collection values are ignored. */ 
                                         break;
                                 }
@@ -398,13 +397,11 @@ export class Device {
         return HID_descriptor;
     }
     report_descriptor_parser(bytes) {
-        return Binary_Map({ decode })
-            .set('items', Repeat({ bytes }, HID_item));
+        return Repeat({ bytes }, HID_item);
     }
     /* Interpreting Physical Descriptor left as an exercise for the reader. */
     physical_descriptor_parser(bytes) {
-        return Binary_Map({ decode })
-            .set('bytes', Repeat({ bytes }, Uint8));
+        return Repeat({ bytes }, Uint8);
     }
     /***************************
      * Public Attribute Access *

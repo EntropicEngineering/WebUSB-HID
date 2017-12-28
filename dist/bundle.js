@@ -360,14 +360,40 @@ const Byte_Buffer = (length, transcoders = {}) => {
     };
     return { pack, parse };
 };
-const Padding = (size) => {
+const Padding = (bytes, transcoders = {}) => {
+    const { encode, decode } = transcoders;
     const pack = (source, options = {}) => {
-        size = numeric(size, options.context);
-        return { size, buffer: options.data_view === undefined ? new ArrayBuffer(Math.ceil(size)) : options.data_view.buffer };
+        let { data_view, byte_offset = 0, context } = options;
+        const size = numeric(bytes, context);
+        if (data_view === undefined) {
+            data_view = new DataView(new ArrayBuffer(Math.ceil(size)));
+        }
+        if (encode !== undefined) {
+            let fill = encode(null, options.context);
+            let i = 0;
+            while (i < Math.floor(size)) {
+                data_view.setUint8(byte_offset + i, fill);
+                fill >>= 8;
+                i++;
+            }
+            const remainder = (size % 1) * 8;
+            if (remainder) {
+                data_view.setUint8(byte_offset + i, fill & (2 ** remainder - 1));
+            }
+        }
+        return { size, buffer: data_view.buffer };
     };
     const parse = (data_view, options = {}, deliver) => {
-        size = numeric(size, options.context);
-        return { size, data: null };
+        const { context } = options;
+        const size = numeric(bytes, context);
+        let data = null;
+        if (decode !== undefined) {
+            data = decode(data, context);
+            if (deliver !== undefined) {
+                deliver(data);
+            }
+        }
+        return { size, data };
     };
     return { pack, parse };
 };
@@ -832,12 +858,13 @@ let input_output_feature_item = Branch({
 });
 let collection = Branch({
     chooser: get('size'),
-    choices: { 0: null_parser },
-    default_choice: Uint(8, assert((value) => (value < 0x07) || (value > 0x7F), 'Invalid collection type'))
+    choices: { 0: Embed(Binary_Map().set('collection', Padding(0, { decode: () => 0 }))) },
+    default_choice: Embed(Binary_Map().set('collection', Uint(8, assert((value) => (value < 0x07) || (value > 0x7F), 'Invalid collection type'))))
 });
 let usage = (default_global = true, local_item = "usage_id") => Branch({
     chooser: get('size'),
     choices: {
+        0: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Padding(0, { decode: () => 0 }))),
         1: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Uint8)),
         2: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Uint16LE)),
         3: Embed(Binary_Map().set(local_item, Uint16LE).set('usage_page', Uint16LE))
@@ -924,8 +951,8 @@ let HID_item = Binary_Map({ decode })
     .set('type', Bits(2))
     .set('tag', Bits(4))
     .set('The rest', Branch({
-    /* context.tag << 4 | context.type << 2 | context.size */
     chooser: (context) => {
+        /* context.tag << 4 | context.type << 2 | context.size */
         return context.get('tag') * 16 + context.get('type') * 4 + context.get('size');
     },
     choices: { 0b11111110: long_item },
@@ -971,13 +998,13 @@ let simpleHID = Binary_Map({ decode })
         throw new Error(`Invalid Vendor Usage page for SimpleHID Platform Descriptor: ${usage}`);
     } }))
     .set("application" /* application */, Uint16LE)
+    .set("array" /* array */, Uint16LE)
+    .set("object" /* object */, Uint16LE)
+    .set("bits" /* bits */, Uint16LE)
     .set("uint" /* uint */, Uint16LE)
     .set("int" /* int */, Uint16LE)
     .set("float" /* float */, Uint16LE)
-    .set("bits" /* bits */, Uint16LE)
-    .set("utf8" /* utf8 */, Uint16LE)
-    .set("object" /* object */, Uint16LE)
-    .set("array" /* array */, Uint16LE);
+    .set("utf8" /* utf8 */, Uint16LE);
 let platform_capability = Embed(Binary_Map()
     .set('reserved', Uint(8, assert((v) => v === 0, "Invalid reserved value")))
     .set('uuid', Repeat({ count: 16 }, Uint8))
@@ -1186,7 +1213,7 @@ class Device {
             }
             /* Get Report descriptor from HID descriptor */
             let reports = this.HID_descriptor.descriptors
-                .filter(({ type, size }) => type === 34 /* Report */);
+                .filter(({ type }) => type === 34 /* Report */);
             if (reports.length > 1) {
                 throw new USBTransferError("Multiple Report descriptors specified in HID descriptor.", "ok");
             }
@@ -1252,7 +1279,6 @@ class Device {
             usage_map.set("object" /* object */, null);
             usage_map.set("array" /* array */, null);
             for (const descriptor of this.BOS_descriptor.capability_descriptors) {
-                console.log(typeof descriptor);
                 if (descriptor.hasOwnProperty('simpleHID')) {
                     const d = descriptor.simpleHID;
                     if (d.version.major > 1) {
@@ -1292,7 +1318,7 @@ class Device {
                 /* Strips 'type', 'tag', and 'size' from item, then adds whatever is left to the correct state table */
                 states.get(item.type).update(Object.entries(item).slice(3));
             };
-            for (const item of this.report_descriptor.items) {
+            for (const item of this.report_descriptor) {
                 switch (item.type) {
                     case 1 /* Global */:
                         switch (item.tag) {
@@ -1365,17 +1391,17 @@ class Device {
                         switch (item.tag) {
                             case 10 /* Collection */:
                                 switch (item.collection) {
-                                    case undefined: /* Zero bytes can be omitted */
-                                    case 0:/* Physical collection */ 
+                                    case 0 /* Physical */:
                                         break;
-                                    case 1:/* Application collection */ 
+                                    case 1 /* Application */:
                                         break;
-                                    case 2:/* Logical collection */ 
+                                    case 2 /* Logical */:
                                         break;
-                                    case 3:/* Report collection */ 
+                                    case 3 /* Report */:
                                         break;
-                                    case 4: /* Named Array collection; I have no idea WTF this is supposed to do */
-                                    case 5: /* Usage Switch collection; this application doesn't care */
+                                    case 4 /* Named_Array */: /* I have no idea WTF this is supposed to do */
+                                    case 5 /* Usage_Switch */: /* This application doesn't care */
+                                    case 6 /* Usage_Modifier */: /* This application doesn't care */
                                     default:/* Reserved or Vendor collection values are ignored. */ 
                                         break;
                                 }
@@ -1407,13 +1433,11 @@ class Device {
         return HID_descriptor;
     }
     report_descriptor_parser(bytes) {
-        return Binary_Map({ decode })
-            .set('items', Repeat({ bytes }, HID_item));
+        return Repeat({ bytes }, HID_item);
     }
     /* Interpreting Physical Descriptor left as an exercise for the reader. */
     physical_descriptor_parser(bytes) {
-        return Binary_Map({ decode })
-            .set('bytes', Repeat({ bytes }, Uint8));
+        return Repeat({ bytes }, Uint8);
     }
     /***************************
      * Public Attribute Access *

@@ -246,6 +246,34 @@ const float_parse = ({ bits, data_view, byte_offset = 0, little_endian }) => {
         }
     }
 };
+const utf8_pack = (value, { bits, data_view, byte_offset = 0 }) => {
+    if (byte_offset % 1) {
+        return write_bit_shift(utf8_pack, value, { bits, data_view, byte_offset });
+    }
+    else {
+        const byte_array = utf8_encoder.encode(value);
+        const byte_length = byte_array.byteLength;
+        if (bits > 0 && byte_length > bits / 8) {
+            throw new Error(`Input string serializes to longer than ${bits / 8} bytes:\n${value}`);
+        }
+        if (byte_length + byte_offset > data_view.byteLength) {
+            throw new Error(`Insufficient space in ArrayBuffer to store length ${byte_length} string:\n${value}`);
+        }
+        for (const [index, byte] of byte_array.entries()) {
+            data_view.setUint8(byte_offset + index, byte);
+        }
+        return byte_length * 8;
+    }
+};
+const utf8_parse = ({ bits, data_view, byte_offset = 0 }) => {
+    if (byte_offset % 1) {
+        return read_bit_shift(utf8_parse, { bits, data_view, byte_offset });
+    }
+    else {
+        return utf8_decoder.decode(new DataView(data_view.buffer, byte_offset, bits ? bits / 8 : undefined));
+    }
+};
+
 const Parent = '$parent';
 const set_context = (data, context) => {
     if (context !== undefined) {
@@ -312,10 +340,11 @@ const Bits = factory(uint_pack, uint_parse, (s) => Bits_Sizes.includes(s));
 const Uint = factory(uint_pack, uint_parse, (s) => Uint_Sizes.includes(s));
 const Int = factory(int_pack, int_parse, (s) => Int_Sizes.includes(s));
 const Float = factory(float_pack, float_parse, (s) => Float_Sizes.includes(s));
-const numeric = (n, context) => {
+const Utf8 = factory(utf8_pack, utf8_parse, (s) => s % 8 === 0 && s >= 0);
+const numeric = (n, context, type = 'B') => {
     if (typeof n === 'object') {
         let { bits = 0, bytes = 0 } = n;
-        n = bits / 8 + bytes;
+        n = type === 'B' ? bits / 8 + bytes : bits + bytes * 8;
     }
     else if (typeof n === 'function') {
         n = n(context);
@@ -360,32 +389,32 @@ const Byte_Buffer = (length, transcoders = {}) => {
     };
     return { pack, parse };
 };
-const Padding = (bytes, transcoders = {}) => {
+const Padding = (bits, transcoders = {}) => {
     const { encode, decode } = transcoders;
     const pack = (source, options = {}) => {
         let { data_view, byte_offset = 0, context } = options;
-        const size = numeric(bytes, context);
+        const size = numeric(bits, context, 'b');
         if (data_view === undefined) {
-            data_view = new DataView(new ArrayBuffer(Math.ceil(size)));
+            data_view = new DataView(new ArrayBuffer(Math.ceil(size / 8)));
         }
         if (encode !== undefined) {
             let fill = encode(null, options.context);
             let i = 0;
-            while (i < Math.floor(size)) {
+            while (i < Math.floor(size / 8)) {
                 data_view.setUint8(byte_offset + i, fill);
                 fill >>= 8;
                 i++;
             }
-            const remainder = (size % 1) * 8;
+            const remainder = size % 8;
             if (remainder) {
                 data_view.setUint8(byte_offset + i, fill & (2 ** remainder - 1));
             }
         }
-        return { size, buffer: data_view.buffer };
+        return { size: size / 8, buffer: data_view.buffer };
     };
     const parse = (data_view, options = {}, deliver) => {
         const { context } = options;
-        const size = numeric(bytes, context);
+        const size = numeric(bits, context, 'b');
         let data = null;
         if (decode !== undefined) {
             data = decode(data, context);
@@ -393,7 +422,7 @@ const Padding = (bytes, transcoders = {}) => {
                 deliver(data);
             }
         }
-        return { size, data };
+        return { size: size / 8, data };
     };
     return { pack, parse };
 };
@@ -824,8 +853,17 @@ const assert = (func, message) => {
 };
 const get = (name) => (context) => context.get(name);
 const decode = (data) => data.toObject();
+const encode = (data) => {
+    const map = new Map();
+    for (const [k, v] of Object.entries(data)) {
+        map.set(k, v);
+    }
+    return map;
+};
+const map_transcoders = { encode, decode };
 /* Utility Parsers */
 let null_parser = Embed(Pass);
+let zero = Padding(0, { decode: () => 0 });
 let BCD_version = Binary_Map({ decode })
     .set('patch', Bits(4))
     .set('minor', Bits(4))
@@ -858,13 +896,13 @@ let input_output_feature_item = Branch({
 });
 let collection = Branch({
     chooser: get('size'),
-    choices: { 0: Embed(Binary_Map().set('collection', Padding(0, { decode: () => 0 }))) },
+    choices: { 0: Embed(Binary_Map().set('collection', zero)) },
     default_choice: Embed(Binary_Map().set('collection', Uint(8, assert((value) => (value < 0x07) || (value > 0x7F), 'Invalid collection type'))))
 });
 let usage = (default_global = true, local_item = "usage_id") => Branch({
     chooser: get('size'),
     choices: {
-        0: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Padding(0, { decode: () => 0 }))),
+        0: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, zero)),
         1: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Uint8)),
         2: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Uint16LE)),
         3: Embed(Binary_Map().set(local_item, Uint16LE).set('usage_page', Uint16LE))
@@ -872,20 +910,20 @@ let usage = (default_global = true, local_item = "usage_id") => Branch({
 });
 let sized_int = (name) => Embed(Binary_Map().set(name, Branch({
     chooser: get('size'),
-    choices: { 1: Int8, 2: Int16LE, 3: Int32LE }
+    choices: { 0: zero, 1: Int8, 2: Int16LE, 3: Int32LE }
 })));
 let sized_uint = (name) => Embed(Binary_Map().set(name, Branch({
     chooser: get('size'),
-    choices: { 1: Uint8, 2: Uint16LE, 3: Uint32LE }
+    choices: { 0: zero, 1: Uint8, 2: Uint16LE, 3: Uint32LE }
 })));
 let main_item = Branch({
     chooser: get('tag'),
     choices: {
-        [8 /* Input */]: input_output_feature_item,
-        [9 /* Output */]: input_output_feature_item,
-        [11 /* Feature */]: input_output_feature_item,
-        [10 /* Collection */]: collection,
-        [12 /* End_Collection */]: null_parser
+        [Report_Main_Item_Tag.Input]: input_output_feature_item,
+        [Report_Main_Item_Tag.Output]: input_output_feature_item,
+        [Report_Main_Item_Tag.Feature]: input_output_feature_item,
+        [Report_Main_Item_Tag.Collection]: collection,
+        [Report_Main_Item_Tag.End_Collection]: null_parser
     }
 });
 let global_item = Branch({
@@ -980,31 +1018,29 @@ let webusb = Binary_Map({ decode })
     .set('landing_page_index', Uint8);
 var USAGE;
 (function (USAGE) {
-    USAGE["page"] = "page";
-    USAGE["application"] = "application";
-    USAGE["uint"] = "uint";
-    USAGE["int"] = "int";
-    USAGE["float"] = "float";
-    USAGE["bits"] = "bits";
-    USAGE["utf8"] = "utf8";
-    USAGE["object"] = "object";
-    USAGE["array"] = "array";
+    USAGE[USAGE["page"] = 65450] = "page";
+    USAGE[USAGE["application"] = 0] = "application";
+    USAGE[USAGE["array"] = 1] = "array";
+    USAGE[USAGE["object"] = 2] = "object";
+    USAGE[USAGE["uint"] = 3] = "uint";
+    USAGE[USAGE["int"] = 4] = "int";
+    USAGE[USAGE["float"] = 5] = "float";
+    USAGE[USAGE["utf8"] = 6] = "utf8";
 })(USAGE || (USAGE = {}));
-let simpleHID = Binary_Map({ decode })
+let simpleHID = Binary_Map() // Not decoded into object
     .set('version', BCD_version)
-    .set("page" /* page */, Uint(16, { little_endian: true, decode: (usage) => {
+    .set('page', Uint(16, { little_endian: true, decode: (usage) => {
         if (usage >= 0xFF00)
             return usage;
         throw new Error(`Invalid Vendor Usage page for SimpleHID Platform Descriptor: ${usage}`);
     } }))
-    .set("application" /* application */, Uint16LE)
-    .set("array" /* array */, Uint16LE)
-    .set("object" /* object */, Uint16LE)
-    .set("bits" /* bits */, Uint16LE)
-    .set("uint" /* uint */, Uint16LE)
-    .set("int" /* int */, Uint16LE)
-    .set("float" /* float */, Uint16LE)
-    .set("utf8" /* utf8 */, Uint16LE);
+    .set('application', Uint16LE)
+    .set('array', Uint16LE)
+    .set('object', Uint16LE)
+    .set('uint', Uint16LE)
+    .set('int', Uint16LE)
+    .set('float', Uint16LE)
+    .set('utf8', Uint16LE);
 let platform_capability = Embed(Binary_Map()
     .set('reserved', Uint(8, assert((v) => v === 0, "Invalid reserved value")))
     .set('uuid', Repeat({ count: 16 }, Uint8))
@@ -1084,12 +1120,20 @@ class Device {
         this._string_descriptors = new Map();
         this._filters = filters;
     }
-    static verify_transfer(result) {
+    static verify_transfer_in(result) {
         if (result.status !== "ok") {
             throw new USBTransferError("HID descriptor transfer failed.", result.status);
         }
         else {
             return result.data;
+        }
+    }
+    static verify_transfer_out(result) {
+        if (result.status !== "ok") {
+            throw new USBTransferError("HID descriptor transfer failed.", result.status);
+        }
+        else {
+            return result.bytesWritten;
         }
     }
     verify_connection() {
@@ -1105,7 +1149,7 @@ class Device {
                 this._reports.get(this._interface_id).get(3 /* Feature */).size > 0) {
             return;
         }
-        else if (!error) {
+        else if (error) {
             throw new ReportError("No valid reports.");
         }
         else {
@@ -1113,22 +1157,22 @@ class Device {
             return this.verify_reports(true);
         }
     }
-    async get_report_id(report, report_type) {
+    async get_report_id(report_type, report_id) {
         await this.verify_reports();
-        if ((report === null || report === undefined) && this._reports.get(this._interface_id).has(0)) {
+        if (report_id === undefined && this._reports.get(this._interface_id).has(0)) {
             return 0;
         }
-        else if (typeof report === "number" && (this._reports.get(this._interface_id).get(report_type)).has(report)) {
-            return report;
+        else if (typeof report_id === "number" && this._reports.get(this._interface_id).get(report_type).has(report_id)) {
+            return report_id;
         }
-        else if (typeof report === "string" && (this._reports.get(this._interface_id).get(report_type)).has(report)) {
-            return this._reports.get(this._interface_id).get(report_type).get(report);
+        else if (typeof report_id === "string" && this._reports.get(this._interface_id).get(report_type).has(report_id)) {
+            return this._reports.get(this._interface_id).get(report_type).get(report_id);
         }
         else {
-            throw new Error(`Invalid ${["Input", "Output", "Feature"][report_type - 1]} report: ${report}`);
+            throw new Error(`Invalid ${["Input", "Output", "Feature"][report_type - 1]} report: ${report_id}`);
         }
     }
-    async get_string_descriptor(index, language_id = undefined) {
+    async get_string_descriptor(index, language_id) {
         this.verify_connection();
         if (index < 0) {
             throw new Error("Invalid string descriptor index");
@@ -1146,7 +1190,7 @@ class Device {
         if (index !== 0 && language_id === undefined) {
             language_id = this._string_descriptors.get(this._interface_id).get(0 /* String Descriptor index */)[0 /* First LANGID */];
         }
-        let data = Device.verify_transfer(await this.webusb_device.controlTransferIn({
+        let data = Device.verify_transfer_in(await this.webusb_device.controlTransferIn({
             requestType: "standard",
             recipient: "device",
             request: 6 /* GET_DESCRIPTOR */,
@@ -1166,7 +1210,7 @@ class Device {
     async get_BOS_descriptor() {
         this.verify_connection();
         if (this.BOS_descriptor === undefined) {
-            let data = Device.verify_transfer(await this.webusb_device.controlTransferIn({
+            let data = Device.verify_transfer_in(await this.webusb_device.controlTransferIn({
                 requestType: "standard",
                 recipient: "device",
                 request: 6 /* GET_DESCRIPTOR */,
@@ -1174,7 +1218,7 @@ class Device {
                 index: 0
             }, 5 /* BOS header size */));
             let total_length = data.getUint16(2, true);
-            data = Device.verify_transfer(await this.webusb_device.controlTransferIn({
+            data = Device.verify_transfer_in(await this.webusb_device.controlTransferIn({
                 requestType: "standard",
                 recipient: "device",
                 request: 6 /* GET_DESCRIPTOR */,
@@ -1269,43 +1313,36 @@ class Device {
                 await this.get_BOS_descriptor();
             }
             const usage_map = new Map();
-            usage_map.set("page" /* page */, null);
-            usage_map.set("application" /* application */, null);
-            usage_map.set("uint" /* uint */, null);
-            usage_map.set("int" /* int */, null);
-            usage_map.set("float" /* float */, null);
-            usage_map.set("bits" /* bits */, null);
-            usage_map.set("utf8" /* utf8 */, null);
-            usage_map.set("object" /* object */, null);
-            usage_map.set("array" /* array */, null);
+            usage_map.set('version', { major: 1, minor: 0, patch: 0 });
+            usage_map.set('page', 65450 /* page */);
+            usage_map.set('application', 0 /* application */);
+            usage_map.set('array', 1 /* array */);
+            usage_map.set('object', 2 /* object */);
+            usage_map.set('uint', 3 /* uint */);
+            usage_map.set('int', 4 /* int */);
+            usage_map.set('float', 5 /* float */);
+            usage_map.set('utf8', 6 /* utf8 */);
             for (const descriptor of this.BOS_descriptor.capability_descriptors) {
                 if (descriptor.hasOwnProperty('simpleHID')) {
                     const d = descriptor.simpleHID;
-                    if (d.version.major > 1) {
-                        throw new DescriptorError(`Incompatible WebUSB-HID version: ${d.version.major}`);
+                    // TODO: Better version compatibility checking
+                    if (d.get('version').major > 1) {
+                        throw new DescriptorError(`Incompatible SimpleHID version: ${d.get('version').major}`);
                     }
-                    for (const usage of usage_map.keys()) {
-                        const page = d[usage];
-                        if (page !== undefined) {
-                            usage_map.set(usage, page).set(page, usage);
-                        }
-                    }
+                    usage_map.update(d);
                     break;
                 }
             }
             const usage = Object.freeze(usage_map.toObject());
-            // TODO: FIXME
-            if (usage)
-                return usage;
-            const reports = new Map([
-                [1 /* Input */, new Map()],
-                [2 /* Output */, new Map()],
-                [3 /* Feature */, new Map()]
-            ]);
+            const reports = new Map()
+                .set(1 /* Input */, new Map())
+                .set(2 /* Output */, new Map())
+                .set(3 /* Feature */, new Map());
             /* alias `device.reports.input` to `device.report[Input]` */
             reports.set('input', reports.get(1 /* Input */));
             reports.set('output', reports.get(2 /* Output */));
             reports.set('feature', reports.get(3 /* Feature */));
+            const collection_stack = [];
             const global_state_stack = [];
             let delimiter_stack = [];
             let delimited = false;
@@ -1317,6 +1354,45 @@ class Device {
             const add_raw_tags = (item) => {
                 /* Strips 'type', 'tag', and 'size' from item, then adds whatever is left to the correct state table */
                 states.get(item.type).update(Object.entries(item).slice(3));
+            };
+            const build_item = (usage, size) => {
+                if (size === 0) {
+                    return Padding(0);
+                }
+                switch (usage) {
+                    case undefined:
+                        if (size > 7) {
+                            throw new DescriptorError(`Invalid Padding size in HID descriptor: ${size}`);
+                        }
+                        return Padding(size);
+                    case 3 /* uint */:
+                        if (![1, 2, 3, 4, 5, 6, 7, 8, 16, 32, 64].includes(size)) {
+                            throw new DescriptorError(`Invalid Uint size in HID descriptor: ${size}`);
+                        }
+                        return Uint(size);
+                    case 4 /* int */:
+                        if (![8, 16, 32].includes(size)) {
+                            throw new DescriptorError(`Invalid Int size in HID descriptor: ${size}`);
+                        }
+                        return Int(size);
+                    case 5 /* float */:
+                        if (![32, 64].includes(size)) {
+                            throw new DescriptorError(`Invalid Float size in HID descriptor: ${size}`);
+                        }
+                        return Float(size);
+                    case 6 /* utf8 */:
+                        if (size % 8 !== 0) {
+                            throw new DescriptorError(`Invalid Utf-8 size in HID descriptor: ${size}`);
+                        }
+                        return Utf8(size, { little_endian: true });
+                    default:
+                        throw new DescriptorError(`Invalid Usage in HID descriptor: ${usage}`);
+                }
+            };
+            const data_item = {
+                [Report_Main_Item_Tag.Input]: 1 /* Input */,
+                [Report_Main_Item_Tag.Output]: 2 /* Output */,
+                [Report_Main_Item_Tag.Feature]: 3 /* Feature */,
             };
             for (const item of this.report_descriptor) {
                 switch (item.type) {
@@ -1348,21 +1424,15 @@ class Device {
                     case 2 /* Local */:
                         switch (item.tag) {
                             case 0 /* Usage */:
-                                states.get(2 /* Local */).get('usage_stack').push(new Map(Object.entries(item).slice(3)));
-                                break;
-                            case 3 /* Designator_Index */:
-                                states.get(2 /* Local */).get('designator_stack').push(new Map(Object.entries(item).slice(3)));
-                                break;
                             case 1 /* Usage_Minimum */:
                             case 2 /* Usage_Maximum */:
+                            case 3 /* Designator_Index */:
                             case 4 /* Designator_Minimum */:
                             case 5 /* Designator_Maximum */:
+                            case 7 /* String_Index */:
                             case 8 /* String_Minimum */:
                             case 9 /* String_Maximum */:
                                 add_raw_tags(item);
-                                break;
-                            case 7 /* String_Index */:
-                                states.get(2 /* Local */).get('string_stack').push(this.get_string_descriptor(item.string_index));
                                 break;
                             case 10 /* Delimiter */:
                                 let delimiter = item.delimiter;
@@ -1379,7 +1449,7 @@ class Device {
                         break;
                     case 0 /* Main */:
                         /* Set the state for the Main item from the Global & Local states */
-                        let state = new Map();
+                        const state = new Map();
                         if (delimiter_stack.length > 0) {
                             /* Only care about the first delimited set */
                             state.update(delimiter_stack[0]);
@@ -1389,15 +1459,37 @@ class Device {
                         /* Flush local state */
                         states.set(2 /* Local */, empty_local_state());
                         switch (item.tag) {
-                            case 10 /* Collection */:
+                            case Report_Main_Item_Tag.Collection:
                                 switch (item.collection) {
-                                    case 0 /* Physical */:
-                                        break;
                                     case 1 /* Application */:
+                                        if (state.get('usage_page') === usage.page && state.get('usage_id') === usage.application) {
+                                            collection_stack.push(true);
+                                        }
+                                        else {
+                                            collection_stack.push(false); // Not SimpleHID compliant
+                                        }
                                         break;
+                                    case 0 /* Physical */:
                                     case 2 /* Logical */:
-                                        break;
                                     case 3 /* Report */:
+                                        /* Do nothing if Application Collection doesn't have correct Usage. */
+                                        if (collection_stack.length === 0 || collection_stack[0] === false) {
+                                            break;
+                                        }
+                                        const report_id = state.get('report_id');
+                                        let struct;
+                                        if (state.get('usage_page') === usage.page && state.get('usage_id') == usage.object) {
+                                            struct = Binary_Map(map_transcoders);
+                                        }
+                                        else {
+                                            struct = Binary_Array();
+                                        }
+                                        struct.id = report_id;
+                                        struct.byte_length = 0;
+                                        if (state.has('string_index')) {
+                                            struct.name = await this.get_string_descriptor(state.get('string_index'));
+                                        }
+                                        collection_stack.push({ struct, type: item.collection });
                                         break;
                                     case 4 /* Named_Array */: /* I have no idea WTF this is supposed to do */
                                     case 5 /* Usage_Switch */: /* This application doesn't care */
@@ -1406,13 +1498,111 @@ class Device {
                                         break;
                                 }
                                 break;
-                            case 12 /* End_Collection */:
+                            case Report_Main_Item_Tag.Input:
+                            case Report_Main_Item_Tag.Output:
+                            case Report_Main_Item_Tag.Feature:
+                                const count = state.get('report_count');
+                                const size = state.get('report_size');
+                                if (size === undefined) {
+                                    throw new ReportError(`Size not defined for ${Report_Main_Item_Tag[item.tag]} Report`);
+                                }
+                                else if (count === undefined) {
+                                    throw new ReportError(`Count not defined for ${Report_Main_Item_Tag[item.tag]} Report`);
+                                }
+                                if (collection_stack.length === 0 || collection_stack[0] === false) {
+                                    const id = state.get('report_id');
+                                    const report_type = reports.get(data_item[item.tag]);
+                                    if (!report_type.has(id)) {
+                                        const array = Binary_Array();
+                                        array.byte_length = 0;
+                                        report_type.set(id, array);
+                                    }
+                                    const report = report_type.get(id);
+                                    for (let i = 0; i < count; i++) {
+                                        report.push(Byte_Buffer(size / 8));
+                                    }
+                                    report.byte_length += (size / 8) * count;
+                                }
+                                else if (collection_stack.length === 1) {
+                                    throw new ReportError(`All Input, Output or Feature Reports must be enclosed in a Report Collection.`);
+                                }
+                                else if (state.get('usage_page') === usage.page) {
+                                    const usage = state.get('usage_id');
+                                    const { struct } = collection_stack[collection_stack.length - 1];
+                                    const item_struct = build_item(usage, size);
+                                    if (struct instanceof Array) {
+                                        for (let i = 0; i < count; i++) {
+                                            struct.push(item_struct);
+                                        }
+                                    }
+                                    else if (struct instanceof Map) {
+                                        if (!state.has('string_index')) {
+                                            throw new ReportError(`Missing String Index for variable name in Report ID ${state.get('report_id')}`);
+                                        }
+                                        const name = await this.get_string_descriptor(state.get('string_index'));
+                                        if (struct.has(name)) {
+                                            const thing = struct.get(name);
+                                            let array;
+                                            if (thing instanceof Array) {
+                                                array = thing;
+                                            }
+                                            else {
+                                                array = Binary_Array();
+                                                array.push(thing);
+                                            }
+                                            for (let i = 0; i < count; i++) {
+                                                array.push(item_struct);
+                                            }
+                                            struct.set(name, array);
+                                        }
+                                        else {
+                                            if (count === 1) {
+                                                struct.set(name, item_struct);
+                                            }
+                                            else {
+                                                const array = Binary_Array();
+                                                for (let i = 0; i < count; i++) {
+                                                    array.push(item_struct);
+                                                }
+                                                struct.set(name, array);
+                                            }
+                                        }
+                                    }
+                                    struct.byte_length += (size / 8) * count;
+                                    struct.type = data_item[item.tag];
+                                }
                                 break;
-                            case 8 /* Input */:
-                                break;
-                            case 9 /* Output */:
-                                break;
-                            case 11 /* Feature */:
+                            case Report_Main_Item_Tag.End_Collection:
+                                if (collection_stack.length === 0) {
+                                    break;
+                                }
+                                const collection = collection_stack.pop();
+                                if (typeof collection === 'boolean') {
+                                    break;
+                                }
+                                const { struct } = collection;
+                                if (collection.type === 3 /* Report */) {
+                                    if (struct.id === undefined) {
+                                        throw new ReportError(`No Report ID defined for Report Collection`);
+                                    }
+                                    if (struct.name !== undefined) {
+                                        reports.get(struct.type).set(struct.name, struct.id);
+                                    }
+                                    reports.get(struct.type).set(struct.id, struct);
+                                }
+                                else {
+                                    const parent = collection_stack[collection_stack.length - 1];
+                                    if (typeof parent === 'boolean') {
+                                        break;
+                                    } // Ignore Logical/Physical Collections outside of Report Collections
+                                    if (parent.struct instanceof Map) {
+                                        parent.struct.set(struct.name, struct);
+                                    }
+                                    else if (parent.struct instanceof Array) {
+                                        parent.struct.push(struct);
+                                    }
+                                    parent.struct.byte_length += struct.byte_length;
+                                }
                                 break;
                         }
                         break;
@@ -1462,8 +1652,7 @@ class Device {
         return this._physical_descriptors.get(this._interface_id);
     }
     get reports() {
-        let result = this._reports.get(this._interface_id);
-        return result !== undefined ? Object.freeze(result.toObject()) : result;
+        return this._reports.get(this._interface_id);
     }
     /******************
      * Public Methods *
@@ -1489,8 +1678,9 @@ class Device {
         }
         let device = await navigator.usb.requestDevice({ filters: [...filters, ...this._filters] });
         await device.open();
-        if (device.configuration === null)
+        if (device.configuration === null) {
             await device.selectConfiguration(this._configuration_id);
+        }
         await device.claimInterface(this._interface_id);
         this.webusb_device = device;
         await this.build_reports();
@@ -1502,28 +1692,47 @@ class Device {
     }
     async receive() {
         this.verify_connection();
+        // TODO: Interrupt In transfer
         throw new Error("Not Implemented");
     }
-    async send(report, ...data) {
+    async send(report_id, data) {
         this.verify_connection();
+        const { id, length, data_view } = await input(this, report_id, data);
+        // TODO: Interrupt Out or Control Transfer Out
         throw new Error("Not Implemented");
     }
-    async get_feature(report) {
+    async get_feature(report_id) {
         this.verify_connection();
-        let report_id = await this.get_report_id(report, 3 /* Feature */);
-        let length = this.reports[3 /* Feature */].report_id.byte_length;
+        const id = await this.get_report_id(3 /* Feature */, report_id);
+        const report = this.reports.get(3 /* Feature */).get(id);
+        let length = Math.ceil(report.byte_length);
+        let byte_offset = 0;
+        if (id !== 0) {
+            length++;
+            byte_offset++;
+        }
         let result = await this.webusb_device.controlTransferIn({
             requestType: "class",
             recipient: "interface",
             request: 1 /* GET_REPORT */,
-            value: 3 /* Feature */ * 256 + report_id,
+            value: 3 /* Feature */ * 256 + id,
             index: this._interface_id
         }, length);
-        return Device.verify_transfer(result);
+        const data_view = Device.verify_transfer_in(result);
+        const data = report.parse(data_view, { byte_offset }).data;
+        return { data, id };
     }
-    async set_feature(report, ...data) {
+    async set_feature(report_id, data) {
         this.verify_connection();
-        throw new Error("Not Implemented");
+        const { id, length, data_view } = await input(this, report_id, data);
+        let result = await this.webusb_device.controlTransferOut({
+            requestType: "class",
+            recipient: "interface",
+            request: 9 /* SET_REPORT */,
+            value: 3 /* Feature */ * 256 + id,
+            index: this._interface_id
+        }, data_view);
+        return length === Device.verify_transfer_out(result);
     }
     static async get_HID_class_descriptor(device, type, index, length, interface_id, request) {
         let result = await device.controlTransferIn({
@@ -1533,8 +1742,33 @@ class Device {
             value: type * 256 + index,
             index: interface_id
         }, length);
-        return Device.verify_transfer(result);
+        return Device.verify_transfer_in(result);
     }
+}
+async function input(device, report_id, data) {
+    let id;
+    if (typeof report_id === "number" || typeof report_id === "string") {
+        id = await device.get_report_id(3 /* Feature */, report_id);
+    }
+    else {
+        id = await device.get_report_id(3 /* Feature */, undefined);
+        data = report_id;
+    }
+    const report = device.reports.get(3 /* Feature */).get(id);
+    let length = Math.ceil(report.byte_length);
+    let byte_offset = 0;
+    let data_view;
+    if (id !== 0) {
+        length++;
+        byte_offset++;
+        data_view = new DataView(new ArrayBuffer(length));
+        data_view.setUint8(0, id);
+    }
+    else {
+        data_view = new DataView(new ArrayBuffer(length));
+    }
+    report.pack(data, { data_view, byte_offset });
+    return { id, length, data_view };
 }
 navigator.simpleHID = Device;
 

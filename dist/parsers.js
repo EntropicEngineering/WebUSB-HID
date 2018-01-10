@@ -24,8 +24,17 @@ const assert = (func, message) => {
 };
 const get = (name) => (context) => context.get(name);
 export const decode = (data) => data.toObject();
+export const encode = (data) => {
+    const map = new Map();
+    for (const [k, v] of Object.entries(data)) {
+        map.set(k, v);
+    }
+    return map;
+};
+export const map_transcoders = { encode, decode };
 /* Utility Parsers */
 let null_parser = Embed(Pass);
+let zero = Padding(0, { decode: () => 0 });
 let BCD_version = Binary_Map({ decode })
     .set('patch', Bits(4))
     .set('minor', Bits(4))
@@ -58,13 +67,13 @@ let input_output_feature_item = Branch({
 });
 let collection = Branch({
     chooser: get('size'),
-    choices: { 0: Embed(Binary_Map().set('collection', Padding(0, { decode: () => 0 }))) },
+    choices: { 0: Embed(Binary_Map().set('collection', zero)) },
     default_choice: Embed(Binary_Map().set('collection', Uint(8, assert((value) => (value < 0x07) || (value > 0x7F), 'Invalid collection type'))))
 });
 let usage = (default_global = true, local_item = "usage_id") => Branch({
     chooser: get('size'),
     choices: {
-        0: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Padding(0, { decode: () => 0 }))),
+        0: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, zero)),
         1: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Uint8)),
         2: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Uint16LE)),
         3: Embed(Binary_Map().set(local_item, Uint16LE).set('usage_page', Uint16LE))
@@ -72,20 +81,20 @@ let usage = (default_global = true, local_item = "usage_id") => Branch({
 });
 let sized_int = (name) => Embed(Binary_Map().set(name, Branch({
     chooser: get('size'),
-    choices: { 1: Int8, 2: Int16LE, 3: Int32LE }
+    choices: { 0: zero, 1: Int8, 2: Int16LE, 3: Int32LE }
 })));
 let sized_uint = (name) => Embed(Binary_Map().set(name, Branch({
     chooser: get('size'),
-    choices: { 1: Uint8, 2: Uint16LE, 3: Uint32LE }
+    choices: { 0: zero, 1: Uint8, 2: Uint16LE, 3: Uint32LE }
 })));
 let main_item = Branch({
     chooser: get('tag'),
     choices: {
-        [8 /* Input */]: input_output_feature_item,
-        [9 /* Output */]: input_output_feature_item,
-        [11 /* Feature */]: input_output_feature_item,
-        [10 /* Collection */]: collection,
-        [12 /* End_Collection */]: null_parser
+        [HID.Report_Main_Item_Tag.Input]: input_output_feature_item,
+        [HID.Report_Main_Item_Tag.Output]: input_output_feature_item,
+        [HID.Report_Main_Item_Tag.Feature]: input_output_feature_item,
+        [HID.Report_Main_Item_Tag.Collection]: collection,
+        [HID.Report_Main_Item_Tag.End_Collection]: null_parser
     }
 });
 let global_item = Branch({
@@ -180,31 +189,29 @@ let webusb = Binary_Map({ decode })
     .set('landing_page_index', Uint8);
 export var USAGE;
 (function (USAGE) {
-    USAGE["page"] = "page";
-    USAGE["application"] = "application";
-    USAGE["uint"] = "uint";
-    USAGE["int"] = "int";
-    USAGE["float"] = "float";
-    USAGE["bits"] = "bits";
-    USAGE["utf8"] = "utf8";
-    USAGE["object"] = "object";
-    USAGE["array"] = "array";
+    USAGE[USAGE["page"] = 65450] = "page";
+    USAGE[USAGE["application"] = 0] = "application";
+    USAGE[USAGE["array"] = 1] = "array";
+    USAGE[USAGE["object"] = 2] = "object";
+    USAGE[USAGE["uint"] = 3] = "uint";
+    USAGE[USAGE["int"] = 4] = "int";
+    USAGE[USAGE["float"] = 5] = "float";
+    USAGE[USAGE["utf8"] = 6] = "utf8";
 })(USAGE || (USAGE = {}));
-let simpleHID = Binary_Map({ decode })
+let simpleHID = Binary_Map() // Not decoded into object
     .set('version', BCD_version)
-    .set("page" /* page */, Uint(16, { little_endian: true, decode: (usage) => {
+    .set('page', Uint(16, { little_endian: true, decode: (usage) => {
         if (usage >= 0xFF00)
             return usage;
         throw new Error(`Invalid Vendor Usage page for SimpleHID Platform Descriptor: ${usage}`);
     } }))
-    .set("application" /* application */, Uint16LE)
-    .set("array" /* array */, Uint16LE)
-    .set("object" /* object */, Uint16LE)
-    .set("bits" /* bits */, Uint16LE)
-    .set("uint" /* uint */, Uint16LE)
-    .set("int" /* int */, Uint16LE)
-    .set("float" /* float */, Uint16LE)
-    .set("utf8" /* utf8 */, Uint16LE);
+    .set('application', Uint16LE)
+    .set('array', Uint16LE)
+    .set('object', Uint16LE)
+    .set('uint', Uint16LE)
+    .set('int', Uint16LE)
+    .set('float', Uint16LE)
+    .set('utf8', Uint16LE);
 let platform_capability = Embed(Binary_Map()
     .set('reserved', Uint(8, assert((v) => v === 0, "Invalid reserved value")))
     .set('uuid', Repeat({ count: 16 }, Uint8))

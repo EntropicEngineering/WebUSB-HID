@@ -12,7 +12,7 @@ export declare const enum Report_Item_Type {
     Global = 1,
     Local = 2,
 }
-export declare const enum Report_Main_Item_Tag {
+export declare enum Report_Main_Item_Tag {
     Input = 8,
     Output = 9,
     Feature = 11,

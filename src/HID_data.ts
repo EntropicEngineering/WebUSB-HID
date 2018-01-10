@@ -17,7 +17,7 @@ export const enum Report_Item_Type {
     /* Reserved = 0b11 */
 }
 
-export const enum Report_Main_Item_Tag {
+export enum Report_Main_Item_Tag {
     Input               = 0b1000,
     Output              = 0b1001,
     Feature             = 0b1011,

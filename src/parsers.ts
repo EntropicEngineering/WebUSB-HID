@@ -21,9 +21,16 @@ import {
     Branch,
     Repeat,
     hex,
-    Encoded_Map,
-    Encoded
+    Map_Context,
+    Context
 } from 'binary-structures';
+
+export type Parsed = Parsed_Object | number | Array<Parsed_Object | number> | Parsed_Map;
+
+export interface Parsed_Object {
+    [name: string]: Parsed;
+}
+export interface Parsed_Map extends Map<string, Parsed> {}
 
 export const Platform_UUIDs = {
     /* python -c "import uuid;print(', '.join(map(hex, uuid.UUID('3408b638-09a9-47a0-8bfd-a0768815b665').bytes_le)))" */
@@ -33,9 +40,9 @@ export const Platform_UUIDs = {
 };
 
 /* Utility functions */
-const assert = (func: (data: Encoded) => boolean, message: string) => {
+const assert = (func: (data: Context) => boolean, message: string) => {
     return {
-        decode: <T extends Encoded>(value: T): T => {
+        decode: <T extends Context>(value: T): T => {
             const result = func(value);
             if ( result ) {
                 return value;
@@ -46,18 +53,24 @@ const assert = (func: (data: Encoded) => boolean, message: string) => {
     }
 };
 
-const get = (name: string) => (context: Encoded_Map) => context.get(name) as number;
+const get = (name: string) => (context: Map_Context) => context.get(name) as number;
 
-export const decode = (data: Encoded_Map) => data.toObject();
+export const decode = (data: Map_Context) => data.toObject();
 
-export type Data = Parsed | number | Array<Parsed | number>;
+export const encode = (data: Parsed_Object) => {
+    const map = new Map();
+    for ( const [k, v] of Object.entries(data) ) {
+        map.set(k, v);
+    }
+    return map;
+};
 
-export interface Parsed {
-    [name: string]: Data;
-}
+export const map_transcoders = { encode, decode };
 
 /* Utility Parsers */
 let null_parser = Embed(Pass);
+
+let zero = Padding(0, { decode: () => 0 });
 
 let BCD_version = Binary_Map({ decode })
     .set('patch', Bits(4))
@@ -98,14 +111,14 @@ let input_output_feature_item = Branch(
 
 let collection = Branch({
     chooser: get('size'),
-    choices: { 0: Embed(Binary_Map().set('collection', Padding(0, { decode: () => 0 }))) },
+    choices: { 0: Embed(Binary_Map().set('collection', zero)) },
     default_choice: Embed(Binary_Map().set('collection', Uint(8, assert((value: number) => ( value < 0x07 ) || ( value > 0x7F ), 'Invalid collection type'))))
 });
 
 let usage = (default_global = true, local_item = "usage_id") => Branch({
     chooser: get('size'),
     choices: {
-        0: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Padding(0, {decode: () => 0}))),
+        0: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, zero)),
         1: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Uint8)),
         2: Embed(Binary_Map().set(default_global ? 'usage_page' : local_item, Uint16LE)),
         3: Embed(Binary_Map().set(local_item, Uint16LE).set('usage_page', Uint16LE))
@@ -114,12 +127,12 @@ let usage = (default_global = true, local_item = "usage_id") => Branch({
 
 let sized_int = (name: string) => Embed(Binary_Map().set(name, Branch({
     chooser: get('size'),
-    choices: { 1: Int8, 2: Int16LE, 3: Int32LE }
+    choices: { 0: zero, 1: Int8, 2: Int16LE, 3: Int32LE }
 })));
 
 let sized_uint = (name: string) => Embed(Binary_Map().set(name, Branch({
     chooser: get('size'),
-    choices: { 1: Uint8, 2: Uint16LE, 3: Uint32LE }
+    choices: { 0: zero, 1: Uint8, 2: Uint16LE, 3: Uint32LE }
 })));
 
 let main_item = Branch({
@@ -225,46 +238,53 @@ const text_decoder = new TextDecoder("utf-16le");
 export let string_descriptor = Binary_Map({ decode })
     .set('length', Uint8)
     .set('type', Uint(8, assert((value: number) => value === USB.Descriptor_Type.STRING, "Invalid string descriptor type")))
-    .set('string', Byte_Buffer((context: Encoded_Map) => ( context.get('length') as number - 2 ), { decode: (buffer: ArrayBuffer) => text_decoder.decode(buffer) }));
+    .set('string', Byte_Buffer((context: Map_Context) => ( context.get('length') as number - 2 ), { decode: (buffer: ArrayBuffer) => text_decoder.decode(buffer) }));
 
 let webusb = Binary_Map({ decode })
     .set('version', BCD_version)
     .set('vendor_code', Uint8)
     .set('landing_page_index', Uint8);
 
+export type USAGES =
+    'page' |
+    'application' |
+    'array' |
+    'object' |
+    'uint' |
+    'int' |
+    'float' |
+    'utf8'
 export const enum USAGE {
-    page = 'page',
-    application = 'application',
-    uint = 'uint',
-    int = 'int',
-    float = 'float',
-    bits = 'bits',
-    utf8 = 'utf8',
-    object = 'object',
-    array = 'array'
+    page        = 0xFFAA,
+    application = 0x0000,
+    array       = 0x0001,
+    object      = 0x0002,
+    uint        = 0x0003,
+    int         = 0x0004,
+    float       = 0x0005,
+    utf8        = 0x0006
 }
 
-let simpleHID = Binary_Map({ decode })
+let simpleHID = Binary_Map()    // Not decoded into object
     .set('version', BCD_version)
-    .set(USAGE.page, Uint(16, { little_endian: true, decode: (usage: number) => {
+    .set('page', Uint(16, { little_endian: true, decode: (usage: number) => {
         if ( usage >= 0xFF00 )
             return usage;
          throw new Error(`Invalid Vendor Usage page for SimpleHID Platform Descriptor: ${usage}`);
     }}))
-    .set(USAGE.application, Uint16LE)
-    .set(USAGE.array, Uint16LE)
-    .set(USAGE.object, Uint16LE)
-    .set(USAGE.bits, Uint16LE)
-    .set(USAGE.uint, Uint16LE)
-    .set(USAGE.int, Uint16LE)
-    .set(USAGE.float, Uint16LE)
-    .set(USAGE.utf8, Uint16LE);
+    .set('application', Uint16LE)
+    .set('array', Uint16LE)
+    .set('object', Uint16LE)
+    .set('uint', Uint16LE)
+    .set('int', Uint16LE)
+    .set('float', Uint16LE)
+    .set('utf8', Uint16LE);
 
 let platform_capability = Embed(Binary_Map()
     .set('reserved', Uint(8, assert((v: number) => v === 0, "Invalid reserved value")))
     .set('uuid', Repeat({ count: 16 }, Uint8))
     .set('platform', Branch({
-        chooser: (context: Encoded_Map) => {
+        chooser: (context: Map_Context) => {
             const UUID = context.get('uuid') as Array<number>;
             for ( let [index, uuid] of [Platform_UUIDs.WebUSB, Platform_UUIDs.SimpleHID].entries() ) {
                 /* Check for match, because Javascript Arrays can't figure out how to do equality checks */
@@ -278,7 +298,7 @@ let platform_capability = Embed(Binary_Map()
             0: Embed(Binary_Map().set('webusb', webusb)),
             1: Embed(Binary_Map().set('simpleHID', simpleHID))
         },
-        default_choice: Embed(Binary_Map().set('unknown_platform', Byte_Buffer((context: Encoded_Map) => context.get('length') as number - 20)))
+        default_choice: Embed(Binary_Map().set('unknown_platform', Byte_Buffer((context: Map_Context) => context.get('length') as number - 20)))
     })));
 
 let capability_descriptors = Binary_Map({ decode })
@@ -288,7 +308,7 @@ let capability_descriptors = Binary_Map({ decode })
     .set('capability', Branch({
         chooser: get('type'),
         choices: { [USB.Capability_Type.PLATFORM]: platform_capability },
-        default_choice: Embed(Binary_Map().set('unknown_capability', Byte_Buffer((context: Encoded_Map) => context.get('length') as number - 3)))
+        default_choice: Embed(Binary_Map().set('unknown_capability', Byte_Buffer((context: Map_Context) => context.get('length') as number - 3)))
     }));
 
 export let BOS_descriptor = Binary_Map({ decode })

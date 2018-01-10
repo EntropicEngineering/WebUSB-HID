@@ -6,7 +6,7 @@ Protocol
 
 Device acts like a normal HID class device, except Vendor class type in Interface descriptor.
 
-Device defines SimpleHID BOS platform descriptor (with all the normal Capability
+Device (optionally) defines SimpleHID BOS platform descriptor (with all the normal Capability
 and Platform headers).
 
 SimpleHID BOS platform descriptor has UUID of 'a8adf97c-6a20-48e4-a97c-79978eec00c7'.
@@ -19,31 +19,31 @@ CapabilityData, 20 bytes (Platform descriptor total of 40 bytes):
     * Only valid when applied to Collection items with Report, Logical, or Physical types.
     * Default report type is `Array`, so this can be omitted.
 * Usage ID for report data type of `Object`, 2 bytes (default `0x0002`)
+    * Only valid when applied to Collection items with Report, Logical, or Physical types.
     * Only valid when applied to (declared before) Collection items with Report type.
-* Usage ID for bit field, 2 bytes (default `0x0003`)
-    * Valid Report Sizes for Usage: <= 32
-* Usage ID for `Uint`, 2 bytes (default `0x0004`)
+* Usage ID for `Uint`, 2 bytes (default `0x0003`)
     * Valid Report Sizes for Usage: 8, 16, 32, 64
-* Usage ID for `int`, 2 bytes (default `0x0005`)
+* Usage ID for `int`, 2 bytes (default `0x0004`)
     * Valid Report Sizes for Usage: 8, 16, 32
-* Usage ID for `float`, 2 bytes (default `0x0006`)
+* Usage ID for `float`, 2 bytes (default `0x0005`)
     * Valid Report Sizes for Usage: 32, 64
-* Usage ID for `utf8`, 2 bytes (default `0x0007`)
+* Usage ID for `utf8`, 2 bytes (default `0x0006`)
+    * Valid Report Sizes for Usage: multiples of 8
 
 Top-level Application-type Collections in a Report Descriptor will be ignored unless
 they are tagged with (preceded by) the Usage Page & ID specified in the
-BOS platform descriptor.
+BOS platform descriptor (or the default values if the device doesn't have
+a SimpleHID BOS platform descriptor).
 
-Logical Minimum & Maximum are ignored because they cannot specify
-Uint32 or 64, or Floats. (Logical Min & Max are effectively int32 values.)
+Report request types (Input, Output, or Feature) are grouped into Report-type Collections.
+Report IDs (if used) shall precede each Report Collection declaration.
 
-A String Index item modifying (declared before) a Collection item of the
-Report type will be used to name the enclosed Report ID. This allows
-using the designated name instead of the Report ID in API calls. The combination
-of report type (Input, Output, or Feature) and report name must be unique
+A String Index item preceding a Report Collection item will be used to name the Report ID.
+This allows using the designated name instead of the Report ID in API calls.
+The combination of report type (Input, Output, or Feature) and report name must be unique
 in order to identify Report ID.
 
-The `Object` Usage ID is intended to modify Collections with the Report type.
+The `Object` Usage ID is intended to modify Report Collections.
 Applying the `Object` usage causes the Javascript API to return report data
 values as Javascript Objects. Additionally, any inputs to the API are expected
 to be Objects as well. By default, report data will be accessed as an Array.
@@ -55,7 +55,7 @@ Index for the appropriate String Descriptor. If a String Index are not
 present for a given Data item, it will be given a numerical property name.
 
 The `Array` or `Object` Usage ID can be applied to Logical or Physical type
-Collections within other Collections to nest data structures, with the enclosed
+Collections within other Report Collections to nest data structures, with the enclosed
 Data items being accessed via a nested Array or Object. This can be used
 to construct arbitrarily complex objects. Best practice, however, is to
 split data between Report IDs to create additional smaller reports.
@@ -72,11 +72,11 @@ Collection (Application)
      * Report Type: Output
      * Report Data: [ Uint64 ]
      */
-    Usage_ID(USAGE_ARRAY)       /* default of 0x0001, can be omitted as Array is default */
     String_Index(4)             /* u'timestamp' */
+    Report_ID(1)
+    Usage_ID(USAGE_ARRAY)       /* default of 0x0001, can be omitted as Array is default */
     Collection(Report)
-        Report_ID(1)
-        Usage_ID(USAGE_UINT)    /* default of 0x0004 */
+        Usage_ID(USAGE_UINT)    /* default of 0x0003 */
         Report_Size(64)
         Report_Count(1)         /* 1x Uint64 */
         Output(Variable)
@@ -89,10 +89,10 @@ Collection (Application)
      *                'serial_number': Uint32,
      *                'status': Uint8[4] }
      */
-    Usage_ID(USAGE_OBJECT)  /* default of 0x0002 */
     String_Index(5)         /* u'status' */
+    Report_ID(1)        /* Same Report ID as 'timestamp', but this is an Input */
+    Usage_ID(USAGE_OBJECT)  /* default of 0x0002 */
     Collection(Report)
-        Report_ID(1)        /* Same Report ID as 'timestamp', but this is an Input */
         String_Index(4)     /* u'timestamp' */
         Usage_ID(USAGE_UINT) Report_Size(64) Report_Count(1) Input(Variable)        /* 1x Uint64 */
         String_Index(6)     /* u'serial_number' */
@@ -105,13 +105,13 @@ Collection (Application)
      * Report ID:   2
      * Report Type: Feature
      * Report Data: { 'timeout': Uint64,
-     *                'threshold': Uint16,
+     *                'error_threshold': Uint16,
      *                'item_order': Uint8[10] }
      */
-    Usage_ID(USAGE_OBJECT)
     String_Index(7)         /* u'config'*/
+    Report_ID(2)
+    Usage_ID(USAGE_OBJECT)
     Collection(Report)
-        Report_ID(2)
         String_Index(8)     /* u'timeout' */
         Usage_ID(USAGE_UINT) Report_Size(64) Report_Count(1) Feature(Variable | Volatile)
         String_Index(9)     /* u'threshold' */
@@ -126,10 +126,10 @@ Collection (Application)
      * Report Data: { 'timestamp': Uint64,
      *                'event': Uint8 }
      */
-    Usage_ID(USAGE_OBJECT)
     String_Index(11)        /* u'event' */
+    Report_ID(17)
+    Usage_ID(USAGE_OBJECT)
     Collection(Report)
-        Report_ID(17)
         String_Index(4)     /* u'timestamp' */
         Usage_ID(USAGE_UINT) Report_Size(64) Report_Count(1) Input(Variable)
         String_Index(11)    /* u'event' */
@@ -140,22 +140,48 @@ Collection (Application)
      * Report ID:   0x45
      *
      * Report Type: Output
-     * Report Data: { 'toggle': Uint8 }
+     * Report Data: None
+     */
+    String_Index(42)            /* u'raw_values' */
+    Report_ID(0x45)
+    Collection(Report)
+        Report_Size(0) Report_Count(0) Output(Variable | Volatile) /* Output report with no data */
+    End_Collection
+
+    /* Report Name: 'raw_values'
+     * Report ID:   0x45
      *
      * Report Type: Input
-     * Report Data: { 'raw_values': [ Uint16, Uint16,... Uint16, Uint8, Uint8,... Uint8 ]}
+     * Report Data: { 'single_array': [Uint16, Uint16, ...Uint16, Uint8, Uint8, ...Uint8],
+     *                'nested_arrays': [[Uint16, Uint16, ...Uint16], [Uint8, Uint8, ...Uint8]]
+     *                'object': { 'ADCs': [Uint16, Uint16, ...Uint16],
+     *                            'switches': [Uint8, Uint8, ...Uint8] }
      */
-    Usage_ID(USAGE_OBJECT)
     String_Index(42)            /* u'raw_values' */
+    Report_ID(0x45)
+    Usage_ID(USAGE_OBJECT)
     Collection(Report)
-        Report_ID(0x45)
-        String_Index(41)        /* u'toggle' */
-        Usage_ID(USAGE_UINT) Report_Size(8) Report_Count(1) Output(Variable | Volatile) /* Output report of 1x Uint8 */
-        String_Index(42)        /* u'raw_values' */
-        Usage_ID(USAGE_ARRAY)   /* Putting multiple Inputs into an array */
+        /* Input report of 10x Uint16, 10x Uint8 in a single array */
+        /* Multiple Data Items with the same String Index are concatenated */
+        String_Index(43)        /* u'single_array' */
+        Usage_ID(USAGE_UINT) Report_Size(16) Report_Count(10) Input(Variable | Buffered_Bytes)
+        String_Index(43)        /* u'single_array' */
+        Usage_ID(USAGE_UINT) Report_Size(8) Report_Count(10) Input(Variable | Buffered_Bytes)
+
+        /* Input report of [Uint16[10], Uint8[10]]: two arrays nested in an array */
+        String_Index(44)        /* u'nested_arrays' */
+        Usage_ID(USAGE_ARRAY)   /* Declare outter array */
         Collection(Physical)
-            /* Input report of 10x Uint16, 10x Uint8 */
             Usage_ID(USAGE_UINT) Report_Size(16) Report_Count(10) Input(Variable | Buffered_Bytes)
+            Usage_ID(USAGE_UINT) Report_Size(8) Report_Count(10) Input(Variable | Buffered_Bytes)
+        End_Collection
+
+        String_Index(45)        /* u'object' */
+        Usage_ID(USAGE_OBJECT)  /* Declare nested object */
+        Collection(Physical)
+            String_Index(46)        /* u'ADCs' */
+            Usage_ID(USAGE_UINT) Report_Size(16) Report_Count(10) Input(Variable | Buffered_Bytes)
+            String_Index(47)        /* u'switches' */
             Usage_ID(USAGE_UINT) Report_Size(8) Report_Count(10) Input(Variable | Buffered_Bytes)
         End_Collection
     End_Collection
@@ -167,8 +193,8 @@ Connecting to the device defined above:
 ```javascript
 let device = await navigator.simpleHID.connect();     /* Pop-up window prompts user to select device */
 
-await device.set_feature('config', {'timeout': 42*60*100 /* ms */,
-                                    'threshold': 42,
+await device.set_feature('config', {'timeout': 6*60*100 /* ms */,
+                                    'error_threshold': 42,
                                     'item_order': [0, 2, 4, 6, 8, 9, 7, 5, 3, 1]});
 
 await device.send('timestamp', Date.now());
@@ -213,9 +239,5 @@ setTimeout(poll, 0);
 await device.send('raw_values', {'toggle': 1});     /* Turn on raw ADC value reporting. */
 ```
 
-
-Data Main items with a Report Count of more than 1 will be interpreted as an
-array of values with their data type defined by given Usage(s), with multiple
-Usage declarations acting as a FIFO queue of modifiers, as per any other
-Usage. (HID spec 6.2.2.8, HID1_11.pdf page 50.) But, honestly, just declare
-a usage before every Data item for the sake of your future self.
+Logical Minimum & Maximum are ignored because they cannot specify
+Uint32 or 64, or Floats. (Logical Min & Max are effectively int32 values.)

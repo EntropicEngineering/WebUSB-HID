@@ -48,7 +48,7 @@ Applying the `Object` usage causes the Javascript API to return report data
 values as Javascript Objects. Additionally, any inputs to the API are expected
 to be Objects as well. By default, report data will be accessed as an Array.
 
-The property names for the values in the returned (and input) objects are
+The property names for the values in the returned (and output) objects are
 given by String Descriptors on the device, and are indicated by modifying
 the Data Main item (Input, Output, or Feature Main items) with the String
 Index for the appropriate String Descriptor. If a String Index are not
@@ -197,7 +197,7 @@ await device.set_feature('config', {'timeout': 6*60*100 /* ms */,
                                     'error_threshold': 42,
                                     'item_order': [0, 2, 4, 6, 8, 9, 7, 5, 3, 1]});
 
-await device.send('timestamp', Date.now());
+await device.send('timestamp', [ Date.now() ]);
 
 let report = await device.receive();
 

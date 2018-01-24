@@ -30,6 +30,16 @@ export interface Report_Struct {
         byte_offset?: number;
     }): any;
 }
+export interface Reports {
+    [id: number]: Report_Struct;
+    [name: string]: Report_Struct | number;
+}
+export interface Report_Types {
+    'input': Reports;
+    'output': Reports;
+    'feature': Reports;
+    [id: number]: Reports;
+}
 /******************
  * Default Export *
  ******************/
@@ -45,17 +55,19 @@ export declare class Device {
     private _physical_descriptors;
     private _reports;
     private _string_descriptors;
+    private _max_input_length;
+    private _report_ids;
     static verify_transfer_in(result: WebUSB.USBInTransferResult): DataView;
     static verify_transfer_out(result: WebUSB.USBOutTransferResult): number;
     verify_connection(): void;
-    verify_reports(error?: boolean): Promise<void>;
+    verify_reports(error?: boolean): Promise<Report_Types>;
     get_report_id(report_type: HID.Request_Report_Type, report_id?: number | string): Promise<number>;
     get_string_descriptor(index: number, language_id?: number): Promise<string | number[] | undefined>;
     get_BOS_descriptor(): Promise<Parsed_Object | undefined>;
     get_HID_descriptor(): Promise<Parsed_Object | undefined>;
     get_report_descriptor(): Promise<Parsed_Object[] | undefined>;
     get_physical_descriptor(index: number, length?: number | undefined): Promise<Parsed>;
-    build_reports(): Promise<Map<"input" | "output" | HID.Request_Report_Type | "feature", Map<string | number, number | Report_Struct>> | undefined>;
+    build_reports(): Promise<Report_Types | undefined>;
     /**************************
      * External Parser Access *
      **************************/
@@ -72,7 +84,7 @@ export declare class Device {
     readonly BOS_descriptor: Parsed_Object | undefined;
     readonly report_descriptor: Parsed_Object[] | undefined;
     readonly physical_descriptor: Parsed[] | undefined;
-    readonly reports: Map<"input" | "output" | HID.Request_Report_Type | "feature", Map<string | number, number | Report_Struct>> | undefined;
+    readonly reports: Report_Types | undefined;
     /******************
      * Public Methods *
      ******************/
@@ -80,8 +92,11 @@ export declare class Device {
     set_interface_id(id: number): Promise<void>;
     connect(...filters: WebUSB.USBDeviceFilter[]): Promise<Device>;
     static connect(...filters: WebUSB.USBDeviceFilter[]): Promise<Device>;
-    receive(): Promise<void>;
-    send(report_id: number | string | Parsed, data?: Parsed): Promise<void>;
+    receive(): Promise<{
+        id: number;
+        data: any;
+    }>;
+    send(report_id: number | string | Parsed, data?: Parsed): Promise<boolean>;
     get_feature(report_id?: number | string): Promise<{
         data: any;
         id: number;

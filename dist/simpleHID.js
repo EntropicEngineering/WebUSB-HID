@@ -44,6 +44,8 @@ export class Device {
         this._physical_descriptors = new Map();
         this._reports = new Map();
         this._string_descriptors = new Map();
+        this._max_input_length = 0;
+        this._report_ids = false;
         this._filters = filters;
     }
     static verify_transfer_in(result) {
@@ -68,12 +70,9 @@ export class Device {
         }
     }
     async verify_reports(error = false) {
-        if (this._reports.has(this._interface_id) &&
-            this._reports.get(this._interface_id).has(1 /* Input */) &&
-            this._reports.get(this._interface_id).get(1 /* Input */).size +
-                this._reports.get(this._interface_id).get(2 /* Output */).size +
-                this._reports.get(this._interface_id).get(3 /* Feature */).size > 0) {
-            return;
+        const reports = this._reports.get(this._interface_id);
+        if (reports !== undefined) {
+            return reports;
         }
         else if (error) {
             throw new ReportError("No valid reports.");
@@ -84,15 +83,15 @@ export class Device {
         }
     }
     async get_report_id(report_type, report_id) {
-        await this.verify_reports();
-        if (report_id === undefined && this._reports.get(this._interface_id).has(0)) {
+        const reports = await this.verify_reports();
+        if (report_id === undefined && reports.hasOwnProperty(0)) {
             return 0;
         }
-        else if (typeof report_id === "number" && this._reports.get(this._interface_id).get(report_type).has(report_id)) {
+        else if (typeof report_id === "number" && reports[report_type].hasOwnProperty(report_id)) {
             return report_id;
         }
-        else if (typeof report_id === "string" && this._reports.get(this._interface_id).get(report_type).has(report_id)) {
-            return this._reports.get(this._interface_id).get(report_type).get(report_id);
+        else if (typeof report_id === "string" && reports[report_type].hasOwnProperty(report_id)) {
+            return reports[report_type][report_id];
         }
         else {
             throw new Error(`Invalid ${["Input", "Output", "Feature"][report_type - 1]} report: ${report_id}`);
@@ -260,14 +259,16 @@ export class Device {
                 }
             }
             const usage = Object.freeze(usage_map.toObject());
-            const reports = new Map()
-                .set(1 /* Input */, new Map())
-                .set(2 /* Output */, new Map())
-                .set(3 /* Feature */, new Map());
+            // FIXME: Make objects for happy API
+            const reports = {
+                input: {},
+                output: {},
+                feature: {}
+            };
             /* alias `device.reports.input` to `device.report[Input]` */
-            reports.set('input', reports.get(1 /* Input */));
-            reports.set('output', reports.get(2 /* Output */));
-            reports.set('feature', reports.get(3 /* Feature */));
+            reports[1 /* Input */] = reports.input;
+            reports[2 /* Output */] = reports.output;
+            reports[3 /* Feature */] = reports.feature;
             const collection_stack = [];
             const global_state_stack = [];
             let delimiter_stack = [];
@@ -332,8 +333,11 @@ export class Device {
                             case 6 /* Unit */:
                             case 5 /* Unit_Exponent */:
                             case 7 /* Report_Size */:
-                            case 8 /* Report_ID */:
                             case 9 /* Report_Count */:
+                                add_raw_tags(item);
+                                break;
+                            case 8 /* Report_ID */:
+                                this._report_ids = true;
                                 add_raw_tags(item);
                                 break;
                             case 10 /* Push */:
@@ -437,17 +441,21 @@ export class Device {
                                 }
                                 if (collection_stack.length === 0 || collection_stack[0] === false) {
                                     const id = state.get('report_id');
-                                    const report_type = reports.get(data_item[item.tag]);
-                                    if (!report_type.has(id)) {
+                                    const type = data_item[item.tag];
+                                    const report_type = reports[type];
+                                    if (!report_type.hasOwnProperty(id)) {
                                         const array = Binary_Array();
                                         array.byte_length = 0;
-                                        report_type.set(id, array);
+                                        report_type[id] = array;
                                     }
-                                    const report = report_type.get(id);
+                                    const report = report_type[id];
                                     for (let i = 0; i < count; i++) {
                                         report.push(Byte_Buffer(size / 8));
                                     }
                                     report.byte_length += (size / 8) * count;
+                                    if (type === 1 /* Input */ && report.byte_length > this._max_input_length) {
+                                        this._max_input_length = report.byte_length;
+                                    }
                                 }
                                 else if (collection_stack.length === 1) {
                                     throw new ReportError(`All Input, Output or Feature Reports must be enclosed in a Report Collection.`);
@@ -509,12 +517,21 @@ export class Device {
                                 const { struct } = collection;
                                 if (collection.type === 3 /* Report */) {
                                     if (struct.id === undefined) {
-                                        throw new ReportError(`No Report ID defined for Report Collection`);
+                                        if (this._report_ids) {
+                                            throw new ReportError(`No Report ID defined for Report Collection`);
+                                        }
+                                        else {
+                                            struct.id = 0;
+                                        }
                                     }
+                                    const type = struct.type;
                                     if (struct.name !== undefined) {
-                                        reports.get(struct.type).set(struct.name, struct.id);
+                                        reports[type][struct.name] = struct.id;
                                     }
-                                    reports.get(struct.type).set(struct.id, struct);
+                                    reports[type][struct.id] = struct;
+                                    if (type === 1 /* Input */ && struct.byte_length > this._max_input_length) {
+                                        this._max_input_length = struct.byte_length;
+                                    }
                                 }
                                 else {
                                     const parent = collection_stack[collection_stack.length - 1];
@@ -618,22 +635,56 @@ export class Device {
     }
     async receive() {
         this.verify_connection();
-        // TODO: Interrupt In transfer
-        throw new Error("Not Implemented");
+        let endpoint_id;
+        for (const endpoint of this.webusb_device.configuration.interfaces[this._interface_id].alternate.endpoints) {
+            if (endpoint.direction === 'in' && endpoint.type === 'interrupt') {
+                endpoint_id = endpoint.endpointNumber;
+                break;
+            }
+        }
+        const result = await this.webusb_device.transferIn(endpoint_id, this._max_input_length);
+        const data_view = Device.verify_transfer_in(result);
+        let report_id = 0;
+        let byte_offset = 0;
+        if (this._report_ids) {
+            report_id = data_view.getUint8(0);
+            byte_offset++;
+        }
+        const report = this.reports[1 /* Input */][endpoint_id];
+        return { id: report_id, data: report.parse(data_view, { byte_offset }).data };
     }
     async send(report_id, data) {
         this.verify_connection();
-        const { id, length, data_view } = await input(this, report_id, data);
-        // TODO: Interrupt Out or Control Transfer Out
-        throw new Error("Not Implemented");
+        const { id, length, data_view } = await output(this, 2 /* Output */, report_id, data);
+        let endpoint_id = undefined;
+        for (const endpoint of this.webusb_device.configuration.interfaces[this._interface_id].alternate.endpoints) {
+            if (endpoint.direction === 'out' && endpoint.type === 'interrupt') {
+                endpoint_id = endpoint.endpointNumber;
+                break;
+            }
+        }
+        let result;
+        if (endpoint_id === undefined) {
+            result = await this.webusb_device.controlTransferOut({
+                requestType: "class",
+                recipient: "interface",
+                request: 9 /* SET_REPORT */,
+                value: 2 /* Output */ * 256 + id,
+                index: this._interface_id
+            }, data_view);
+        }
+        else {
+            result = await this.webusb_device.transferOut(endpoint_id, data_view.buffer);
+        }
+        return length === Device.verify_transfer_out(result);
     }
     async get_feature(report_id) {
         this.verify_connection();
         const id = await this.get_report_id(3 /* Feature */, report_id);
-        const report = this.reports.get(3 /* Feature */).get(id);
+        const report = this.reports[3 /* Feature */][id];
         let length = Math.ceil(report.byte_length);
         let byte_offset = 0;
-        if (id !== 0) {
+        if (this._report_ids) {
             length++;
             byte_offset++;
         }
@@ -650,7 +701,7 @@ export class Device {
     }
     async set_feature(report_id, data) {
         this.verify_connection();
-        const { id, length, data_view } = await input(this, report_id, data);
+        const { id, length, data_view } = await output(this, 3 /* Feature */, report_id, data);
         let result = await this.webusb_device.controlTransferOut({
             requestType: "class",
             recipient: "interface",
@@ -671,16 +722,16 @@ export class Device {
         return Device.verify_transfer_in(result);
     }
 }
-async function input(device, report_id, data) {
+async function output(device, report_type, report_id, data) {
     let id;
     if (typeof report_id === "number" || typeof report_id === "string") {
-        id = await device.get_report_id(3 /* Feature */, report_id);
+        id = await device.get_report_id(report_type, report_id);
     }
     else {
-        id = await device.get_report_id(3 /* Feature */, undefined);
+        id = await device.get_report_id(report_type, undefined);
         data = report_id;
     }
-    const report = device.reports.get(3 /* Feature */).get(id);
+    const report = device.reports[report_type][id];
     let length = Math.ceil(report.byte_length);
     let byte_offset = 0;
     let data_view;

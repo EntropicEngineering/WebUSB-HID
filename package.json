@@ -25,13 +25,13 @@
   },
   "homepage": "https://github.com/EntropicEngineering/SimpleHID#readme",
   "devDependencies": {
+    "improved-map": "^1.2.1",
     "rollup": "^0.52.3",
-    "rollup-plugin-node-resolve": "^3.0.0",
+    "rollup-plugin-node-resolve": "^3.0.2",
     "typescript": "^2.6.2"
   },
   "dependencies": {
-    "binary-structures": "^1.7.0",
-    "improved-map": "^1.1.0"
+    "binary-structures": "^1.8.0"
   },
   "files": [
     "src/*.ts",

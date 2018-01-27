@@ -10,12 +10,6 @@ export declare const Platform_UUIDs: {
     WebUSB: number[];
     SimpleHID: number[];
 };
-export declare const decode: (data: Map<string, any>) => any;
-export declare const encode: (data: Parsed_Object) => Map<any, any>;
-export declare const map_transcoders: {
-    encode: (data: Parsed_Object) => Map<any, any>;
-    decode: (data: Map<string, any>) => any;
-};
 export declare let HID_item: Binary_Map<any, any, {}>;
 export declare let HID_descriptor: Binary_Map<any, any, {}>;
 export declare let languages_string_descriptor: Binary_Map<any, any, {}>;

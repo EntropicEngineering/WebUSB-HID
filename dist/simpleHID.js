@@ -7,7 +7,7 @@ import 'improved-map';
 import { Binary_Array, Binary_Map, Repeat, Uint8, Padding, Uint, Int, Float, Utf8, Byte_Buffer } from 'binary-structures';
 import * as HID from './HID_data';
 import * as USB from './USB_data';
-import { BOS_descriptor, HID_descriptor, HID_item, languages_string_descriptor, string_descriptor, map_transcoders } from './parsers';
+import { BOS_descriptor, HID_descriptor, HID_item, languages_string_descriptor, string_descriptor } from './parsers';
 /*************
  * Utilities *
  *************/
@@ -19,7 +19,7 @@ function hex_buffer(buffer) {
 }
 export class USBTransferError extends Error {
     constructor(message, status) {
-        super(message);
+        super(message + ` Transfer Status: ${status}`);
         this.name = 'USBTransferError';
         this.status = status;
     }
@@ -409,7 +409,7 @@ export class Device {
                                         const report_id = state.get('report_id');
                                         let struct;
                                         if (state.get('usage_page') === usage.page && state.get('usage_id') == usage.object) {
-                                            struct = Binary_Map(map_transcoders);
+                                            struct = Binary_Map(Binary_Map.object_transcoders);
                                         }
                                         else {
                                             struct = Binary_Array();
@@ -611,10 +611,10 @@ export class Device {
         await this.build_reports();
     }
     async connect(...filters) {
-        if (this === undefined) {
-            /* Instantiate class, then connect */
-            return await (new Device(...filters)).connect();
-        }
+        // if ( this === undefined ) {
+        //     /* Instantiate class, then connect */
+        //     return await ( new Device(...filters) ).connect();
+        // }
         if (this.webusb_device !== undefined) {
             /* Already connected */
             return this;
@@ -642,7 +642,7 @@ export class Device {
                 break;
             }
         }
-        const result = await this.webusb_device.transferIn(endpoint_id, this._max_input_length);
+        const result = await this.webusb_device.transferIn(endpoint_id, this._max_input_length + 1);
         const data_view = Device.verify_transfer_in(result);
         let report_id = 0;
         let byte_offset = 0;
@@ -653,7 +653,7 @@ export class Device {
         const report = this.reports[1 /* Input */][endpoint_id];
         return { id: report_id, data: report.parse(data_view, { byte_offset }).data };
     }
-    async send(report_id, data) {
+    async send(report_id, data = []) {
         this.verify_connection();
         const { id, length, data_view } = await output(this, 2 /* Output */, report_id, data);
         let endpoint_id = undefined;

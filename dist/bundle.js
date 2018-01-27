@@ -1,3 +1,10 @@
+Map.fromObject = function (source) {
+    let map = new Map();
+    for (const [k, v] of Object.entries(source)) {
+        map.set(k, v);
+    }
+    return map;
+};
 Map.assign = function (target, ...sources) {
     for (const source of sources) {
         for (const [key, value] of source) {
@@ -8,6 +15,14 @@ Map.assign = function (target, ...sources) {
 };
 Map.prototype.update = function (...sources) {
     return Map.assign(this, ...sources);
+};
+Map.prototype.pop = function (key, otherwise) {
+    if (!this.has(key)) {
+        return otherwise;
+    }
+    const value = this.get(key);
+    this.delete(key);
+    return value;
 };
 Map.prototype.toObject = function () {
     const result = {};
@@ -20,14 +35,6 @@ Map.prototype.toObject = function () {
         }
     }
     return result;
-};
-Map.prototype.pop = function (key, otherwise) {
-    if (!this.has(key)) {
-        return otherwise;
-    }
-    const value = this.get(key);
-    this.delete(key);
-    return value;
 };
 
 const hex$1 = (value) => {
@@ -480,7 +487,27 @@ const Embed = (embedded) => {
     };
     return { pack, parse };
 };
-const Binary_Map = (transcoders = {}, iterable) => {
+const concat_buffers = (packed, byte_length) => {
+    const data_view = new DataView(new ArrayBuffer(Math.ceil(byte_length)));
+    let byte_offset = 0;
+    for (const { size, buffer } of packed) {
+        /* Copy all the data from the returned buffers into one grand buffer. */
+        const bytes = Array.from(new Uint8Array(buffer));
+        /* Create a Byte Array with the appropriate number of Uint(8)s, possibly with a trailing Bits. */
+        const array = Binary_Array();
+        for (let i = 0; i < Math.floor(size); i++) {
+            array.push(Uint(8));
+        }
+        if (size % 1) {
+            array.push(Bits((size % 1) * 8));
+        }
+        /* Pack the bytes into the buffer */
+        array.pack(bytes, { data_view, byte_offset });
+        byte_offset += size;
+    }
+    return data_view;
+};
+function Binary_Map(transcoders = {}, iterable) {
     if (transcoders instanceof Array) {
         [transcoders, iterable] = [iterable, transcoders];
     }
@@ -531,27 +558,12 @@ const Binary_Map = (transcoders = {}, iterable) => {
         return { data, size: offset };
     };
     return map;
-};
-const concat_buffers = (packed, byte_length) => {
-    const data_view = new DataView(new ArrayBuffer(Math.ceil(byte_length)));
-    let byte_offset = 0;
-    for (const { size, buffer } of packed) {
-        /* Copy all the data from the returned buffers into one grand buffer. */
-        const bytes = Array.from(new Uint8Array(buffer));
-        /* Create a Byte Array with the appropriate number of Uint(8)s, possibly with a trailing Bits. */
-        const array = Binary_Array();
-        for (let i = 0; i < Math.floor(size); i++) {
-            array.push(Uint(8));
-        }
-        if (size % 1) {
-            array.push(Bits((size % 1) * 8));
-        }
-        /* Pack the bytes into the buffer */
-        array.pack(bytes, { data_view, byte_offset });
-        byte_offset += size;
-    }
-    return data_view;
-};
+}
+(function (Binary_Map) {
+    Binary_Map.object_encoder = (obj) => Map.fromObject(obj);
+    Binary_Map.object_decoder = (map) => map.toObject();
+    Binary_Map.object_transcoders = { encode: Binary_Map.object_encoder, decode: Binary_Map.object_decoder };
+})(Binary_Map || (Binary_Map = {}));
 /* This would be much cleaner if JavaScript had interfaces. Or I could make everything subclass Struct... */
 const extract_array_options = (elements = []) => {
     if (elements.length > 0) {
@@ -852,19 +864,10 @@ const assert = (func, message) => {
     };
 };
 const get = (name) => (context) => context.get(name);
-const decode = (data) => data.toObject();
-const encode = (data) => {
-    const map = new Map();
-    for (const [k, v] of Object.entries(data)) {
-        map.set(k, v);
-    }
-    return map;
-};
-const map_transcoders = { encode, decode };
 /* Utility Parsers */
 let null_parser = Embed(Pass);
 let zero = Padding(0, { decode: () => 0 });
-let BCD_version = Binary_Map({ decode })
+let BCD_version = Binary_Map(Binary_Map.object_transcoders)
     .set('patch', Bits(4))
     .set('minor', Bits(4))
     .set('major', Uint8);
@@ -984,7 +987,7 @@ let long_item = Embed(Binary_Map()
     .set('long_item_tag', Uint(8, assert((tag) => (tag >= 0xF0), "Invalid long_item_tag")))
     .set('data', Byte_Buffer(get('data_size'))));
 /* exports */
-let HID_item = Binary_Map({ decode })
+let HID_item = Binary_Map(Binary_Map.object_transcoders)
     .set('size', Bits(2))
     .set('type', Bits(2))
     .set('tag', Bits(4))
@@ -996,23 +999,23 @@ let HID_item = Binary_Map({ decode })
     choices: { 0b11111110: long_item },
     default_choice: short_item
 }));
-let HID_descriptor = Binary_Map({ decode })
+let HID_descriptor = Binary_Map(Binary_Map.object_transcoders)
     .set('length', Uint8)
     .set('type', Uint(8, assert((data) => data === 33 /* HID */, "Invalid Class Descriptor")))
     .set('version', BCD_version)
     .set('country_code', Uint8)
     .set('count', Uint(8, assert((count) => count > 0, "Invalid number of descriptors")))
-    .set('descriptors', Repeat({ count: get('count') }, Binary_Map({ decode }).set('type', Uint8).set('size', Uint16LE)));
-let languages_string_descriptor = Binary_Map({ decode })
+    .set('descriptors', Repeat({ count: get('count') }, Binary_Map(Binary_Map.object_transcoders).set('type', Uint8).set('size', Uint16LE)));
+let languages_string_descriptor = Binary_Map(Binary_Map.object_transcoders)
     .set('length', Uint8)
     .set('type', Uint(8, assert((value) => value === 3 /* STRING */, "Invalid string descriptor type")))
     .set('LANGID', Repeat({ count: (context) => (context.get('length') - 2) / 2 }, Uint16LE));
 const text_decoder = new TextDecoder("utf-16le");
-let string_descriptor = Binary_Map({ decode })
+let string_descriptor = Binary_Map(Binary_Map.object_transcoders)
     .set('length', Uint8)
     .set('type', Uint(8, assert((value) => value === 3 /* STRING */, "Invalid string descriptor type")))
     .set('string', Byte_Buffer((context) => (context.get('length') - 2), { decode: (buffer) => text_decoder.decode(buffer) }));
-let webusb = Binary_Map({ decode })
+let webusb = Binary_Map(Binary_Map.object_transcoders)
     .set('version', BCD_version)
     .set('vendor_code', Uint8)
     .set('landing_page_index', Uint8);
@@ -1061,7 +1064,7 @@ let platform_capability = Embed(Binary_Map()
     },
     default_choice: Embed(Binary_Map().set('unknown_platform', Byte_Buffer((context) => context.get('length') - 20)))
 })));
-let capability_descriptors = Binary_Map({ decode })
+let capability_descriptors = Binary_Map(Binary_Map.object_transcoders)
     .set('length', Uint8)
     .set('descriptor_type', Uint(8, assert((data) => data === 16 /* DEVICE_CAPABILITY */, "Incorrect descriptor type, should be DEVICE CAPABILITY")))
     .set('type', Uint(8, assert((data) => data > 0 && data < 0x0D, "Invalid device capability type")))
@@ -1070,7 +1073,7 @@ let capability_descriptors = Binary_Map({ decode })
     choices: { [5 /* PLATFORM */]: platform_capability },
     default_choice: Embed(Binary_Map().set('unknown_capability', Byte_Buffer((context) => context.get('length') - 3)))
 }));
-let BOS_descriptor = Binary_Map({ decode })
+let BOS_descriptor = Binary_Map(Binary_Map.object_transcoders)
     .set('length', Uint8)
     .set('type', Uint(8, assert((data) => data === 15 /* BOS */, "Invalid descriptor type, should be BOS")))
     .set('total_length', Uint16LE)
@@ -1093,7 +1096,7 @@ function hex_buffer(buffer) {
 }
 class USBTransferError extends Error {
     constructor(message, status) {
-        super(message);
+        super(message + ` Transfer Status: ${status}`);
         this.name = 'USBTransferError';
         this.status = status;
     }
@@ -1483,7 +1486,7 @@ class Device {
                                         const report_id = state.get('report_id');
                                         let struct;
                                         if (state.get('usage_page') === usage.page && state.get('usage_id') == usage.object) {
-                                            struct = Binary_Map(map_transcoders);
+                                            struct = Binary_Map(Binary_Map.object_transcoders);
                                         }
                                         else {
                                             struct = Binary_Array();
@@ -1685,10 +1688,10 @@ class Device {
         await this.build_reports();
     }
     async connect(...filters) {
-        if (this === undefined) {
-            /* Instantiate class, then connect */
-            return await (new Device(...filters)).connect();
-        }
+        // if ( this === undefined ) {
+        //     /* Instantiate class, then connect */
+        //     return await ( new Device(...filters) ).connect();
+        // }
         if (this.webusb_device !== undefined) {
             /* Already connected */
             return this;
@@ -1716,7 +1719,7 @@ class Device {
                 break;
             }
         }
-        const result = await this.webusb_device.transferIn(endpoint_id, this._max_input_length);
+        const result = await this.webusb_device.transferIn(endpoint_id, this._max_input_length + 1);
         const data_view = Device.verify_transfer_in(result);
         let report_id = 0;
         let byte_offset = 0;
@@ -1727,7 +1730,7 @@ class Device {
         const report = this.reports[1 /* Input */][endpoint_id];
         return { id: report_id, data: report.parse(data_view, { byte_offset }).data };
     }
-    async send(report_id, data) {
+    async send(report_id, data = []) {
         this.verify_connection();
         const { id, length, data_view } = await output(this, 2 /* Output */, report_id, data);
         let endpoint_id = undefined;

@@ -23,19 +23,10 @@ const assert = (func, message) => {
     };
 };
 const get = (name) => (context) => context.get(name);
-export const decode = (data) => data.toObject();
-export const encode = (data) => {
-    const map = new Map();
-    for (const [k, v] of Object.entries(data)) {
-        map.set(k, v);
-    }
-    return map;
-};
-export const map_transcoders = { encode, decode };
 /* Utility Parsers */
 let null_parser = Embed(Pass);
 let zero = Padding(0, { decode: () => 0 });
-let BCD_version = Binary_Map({ decode })
+let BCD_version = Binary_Map(Binary_Map.object_transcoders)
     .set('patch', Bits(4))
     .set('minor', Bits(4))
     .set('major', Uint8);
@@ -155,7 +146,7 @@ let long_item = Embed(Binary_Map()
     .set('long_item_tag', Uint(8, assert((tag) => (tag >= 0xF0), "Invalid long_item_tag")))
     .set('data', Byte_Buffer(get('data_size'))));
 /* exports */
-export let HID_item = Binary_Map({ decode })
+export let HID_item = Binary_Map(Binary_Map.object_transcoders)
     .set('size', Bits(2))
     .set('type', Bits(2))
     .set('tag', Bits(4))
@@ -167,23 +158,23 @@ export let HID_item = Binary_Map({ decode })
     choices: { 0b11111110: long_item },
     default_choice: short_item
 }));
-export let HID_descriptor = Binary_Map({ decode })
+export let HID_descriptor = Binary_Map(Binary_Map.object_transcoders)
     .set('length', Uint8)
     .set('type', Uint(8, assert((data) => data === 33 /* HID */, "Invalid Class Descriptor")))
     .set('version', BCD_version)
     .set('country_code', Uint8)
     .set('count', Uint(8, assert((count) => count > 0, "Invalid number of descriptors")))
-    .set('descriptors', Repeat({ count: get('count') }, Binary_Map({ decode }).set('type', Uint8).set('size', Uint16LE)));
-export let languages_string_descriptor = Binary_Map({ decode })
+    .set('descriptors', Repeat({ count: get('count') }, Binary_Map(Binary_Map.object_transcoders).set('type', Uint8).set('size', Uint16LE)));
+export let languages_string_descriptor = Binary_Map(Binary_Map.object_transcoders)
     .set('length', Uint8)
     .set('type', Uint(8, assert((value) => value === 3 /* STRING */, "Invalid string descriptor type")))
     .set('LANGID', Repeat({ count: (context) => (context.get('length') - 2) / 2 }, Uint16LE));
 const text_decoder = new TextDecoder("utf-16le");
-export let string_descriptor = Binary_Map({ decode })
+export let string_descriptor = Binary_Map(Binary_Map.object_transcoders)
     .set('length', Uint8)
     .set('type', Uint(8, assert((value) => value === 3 /* STRING */, "Invalid string descriptor type")))
     .set('string', Byte_Buffer((context) => (context.get('length') - 2), { decode: (buffer) => text_decoder.decode(buffer) }));
-let webusb = Binary_Map({ decode })
+let webusb = Binary_Map(Binary_Map.object_transcoders)
     .set('version', BCD_version)
     .set('vendor_code', Uint8)
     .set('landing_page_index', Uint8);
@@ -232,7 +223,7 @@ let platform_capability = Embed(Binary_Map()
     },
     default_choice: Embed(Binary_Map().set('unknown_platform', Byte_Buffer((context) => context.get('length') - 20)))
 })));
-let capability_descriptors = Binary_Map({ decode })
+let capability_descriptors = Binary_Map(Binary_Map.object_transcoders)
     .set('length', Uint8)
     .set('descriptor_type', Uint(8, assert((data) => data === 16 /* DEVICE_CAPABILITY */, "Incorrect descriptor type, should be DEVICE CAPABILITY")))
     .set('type', Uint(8, assert((data) => data > 0 && data < 0x0D, "Invalid device capability type")))
@@ -241,7 +232,7 @@ let capability_descriptors = Binary_Map({ decode })
     choices: { [5 /* PLATFORM */]: platform_capability },
     default_choice: Embed(Binary_Map().set('unknown_capability', Byte_Buffer((context) => context.get('length') - 3)))
 }));
-export let BOS_descriptor = Binary_Map({ decode })
+export let BOS_descriptor = Binary_Map(Binary_Map.object_transcoders)
     .set('length', Uint8)
     .set('type', Uint(8, assert((data) => data === 15 /* BOS */, "Invalid descriptor type, should be BOS")))
     .set('total_length', Uint16LE)

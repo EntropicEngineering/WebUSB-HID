@@ -730,7 +730,7 @@ export class Device {
             report_id = data_view.getUint8(0);
             byte_offset++;
         }
-        const report = this.reports![HID.Request_Report_Type.Input][endpoint_id] as Report_Struct;
+        const report = this.reports![HID.Request_Report_Type.Input][report_id] as Report_Struct;
         return { id: report_id, data: report.parse(data_view, { byte_offset }).data };
     }
 

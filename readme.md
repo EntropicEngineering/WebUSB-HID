@@ -11,7 +11,7 @@ and Platform headers).
 
 SimpleHID BOS platform descriptor has UUID of 'a8adf97c-6a20-48e4-a97c-79978eec00c7'.
 
-CapabilityData, 20 bytes (Platform descriptor total of 40 bytes):
+CapabilityData, 18 bytes (Platform descriptor total of 38 bytes):
 * bcdVersion, 2 bytes, binary-coded-decimal version number (1.0.0)
 * Vendor Usage Page for SimpleHID data-type mapping (default to `0xFFAA`), 2 bytes
 * Usage ID applied to Application-type Collections to indicate SimpleHID compatibility, 2 bytes (default `0x0000`)
@@ -236,7 +236,7 @@ let poll = async () => {
 }
 setTimeout(poll, 0);
 
-await device.send('raw_values', {'toggle': 1});     /* Turn on raw ADC value reporting. */
+await device.send('raw_values');     /* Turn on raw ADC value reporting. */
 ```
 
 Logical Minimum & Maximum are ignored because they cannot specify

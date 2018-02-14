@@ -650,7 +650,7 @@ export class Device {
             report_id = data_view.getUint8(0);
             byte_offset++;
         }
-        const report = this.reports[1 /* Input */][endpoint_id];
+        const report = this.reports[1 /* Input */][report_id];
         return { id: report_id, data: report.parse(data_view, { byte_offset }).data };
     }
     async send(report_id, data = []) {

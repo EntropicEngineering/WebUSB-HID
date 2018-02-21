@@ -474,7 +474,7 @@ export class Device {
                                         if ( collection_stack.length === 0 || collection_stack[0] === false ) { break; }
                                         const report_id = state.get('report_id');
                                         let struct: Report_Struct;
-                                        if ( state.get('usage_page') === usage.page && state.get('usage_id') == usage.object ) {
+                                        if ( state.get('usage_page') === usage.page && state.get('usage_id') === usage.object ) {
                                             struct = Binary_Map(Binary_Map.object_transcoders) as Report_Struct;
                                         } else {
                                             struct = Binary_Array() as Report_Struct;

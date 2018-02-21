@@ -6,7 +6,6 @@
 import 'improved-map';
 import { Binary_Array, Binary_Map, Repeat, Uint8, Padding, Uint, Int, Float, Utf8, Byte_Buffer } from 'binary-structures';
 import * as HID from './HID_data';
-import * as USB from './USB_data';
 import { BOS_descriptor, HID_descriptor, HID_item, languages_string_descriptor, string_descriptor } from './parsers';
 /*************
  * Utilities *
@@ -408,7 +407,7 @@ export class Device {
                                         }
                                         const report_id = state.get('report_id');
                                         let struct;
-                                        if (state.get('usage_page') === usage.page && state.get('usage_id') == usage.object) {
+                                        if (state.get('usage_page') === usage.page && state.get('usage_id') === usage.object) {
                                             struct = Binary_Map(Binary_Map.object_transcoders);
                                         }
                                         else {

@@ -37,11 +37,11 @@ Map.prototype.toObject = function () {
     return result;
 };
 
-const hex$1 = (value) => {
+const hex = (value) => {
     return "0x" + value.toString(16).toUpperCase().padStart(2, "0");
 };
-const hex_buffer$1 = (buffer) => {
-    return Array.from(new Uint8Array(buffer), hex$1).join(", ");
+const hex_buffer = (buffer) => {
+    return Array.from(new Uint8Array(buffer), hex).join(", ");
 };
 const utf8_encoder = new TextEncoder();
 const utf8_decoder = new TextDecoder();
@@ -168,7 +168,7 @@ const uint_parse = ({ bits, data_view, byte_offset = 0, little_endian }) => {
                     value = low_byte * 2 ** 32 + high_byte;
                 }
                 if (value > Number.MAX_SAFE_INTEGER) {
-                    throw new Error(`Uint64 out of range for Javascript: ${hex_buffer$1(data_view.buffer.slice(byte_offset, byte_offset + 8))}`);
+                    throw new Error(`Uint64 out of range for Javascript: ${hex_buffer(data_view.buffer.slice(byte_offset, byte_offset + 8))}`);
                 }
                 return value;
             default:
@@ -793,56 +793,6 @@ var Request_Report_Type;
     Request_Report_Type[Request_Report_Type["Feature"] = 3] = "Feature";
 })(Request_Report_Type || (Request_Report_Type = {}));
 
-var Descriptor_Type;
-(function (Descriptor_Type) {
-    Descriptor_Type[Descriptor_Type["DEVICE"] = 1] = "DEVICE";
-    Descriptor_Type[Descriptor_Type["CONFIGURATION"] = 2] = "CONFIGURATION";
-    Descriptor_Type[Descriptor_Type["STRING"] = 3] = "STRING";
-    Descriptor_Type[Descriptor_Type["INTERFACE"] = 4] = "INTERFACE";
-    Descriptor_Type[Descriptor_Type["ENDPOINT"] = 5] = "ENDPOINT";
-    /* Reserved             = 6, */
-    /* Reserved             = 7, */
-    Descriptor_Type[Descriptor_Type["INTERFACE_POWER"] = 8] = "INTERFACE_POWER";
-    Descriptor_Type[Descriptor_Type["OTG"] = 9] = "OTG";
-    Descriptor_Type[Descriptor_Type["DEBUG"] = 10] = "DEBUG";
-    Descriptor_Type[Descriptor_Type["INTERFACE_ASSOCIATION"] = 11] = "INTERFACE_ASSOCIATION";
-    Descriptor_Type[Descriptor_Type["BOS"] = 15] = "BOS";
-    Descriptor_Type[Descriptor_Type["DEVICE_CAPABILITY"] = 16] = "DEVICE_CAPABILITY";
-})(Descriptor_Type || (Descriptor_Type = {}));
-var Request_Type$1;
-(function (Request_Type) {
-    Request_Type[Request_Type["GET_STATUS"] = 0] = "GET_STATUS";
-    Request_Type[Request_Type["CLEAR_FEATURE"] = 1] = "CLEAR_FEATURE";
-    /* Reserved             = 2, */
-    Request_Type[Request_Type["SET_FEATURE"] = 3] = "SET_FEATURE";
-    /* Reserved             = 4, */
-    Request_Type[Request_Type["SET_ADDRESS"] = 5] = "SET_ADDRESS";
-    Request_Type[Request_Type["GET_DESCRIPTOR"] = 6] = "GET_DESCRIPTOR";
-    Request_Type[Request_Type["SET_DESCRIPTOR"] = 7] = "SET_DESCRIPTOR";
-    Request_Type[Request_Type["GET_CONFIGURATION"] = 8] = "GET_CONFIGURATION";
-    Request_Type[Request_Type["SET_CONFIGURATION"] = 9] = "SET_CONFIGURATION";
-    Request_Type[Request_Type["GET_INTERFACE"] = 10] = "GET_INTERFACE";
-    Request_Type[Request_Type["SET_INTERFACE"] = 11] = "SET_INTERFACE";
-    /* Further request types left as an exercise to the reader */
-})(Request_Type$1 || (Request_Type$1 = {}));
-var Capability_Type;
-(function (Capability_Type) {
-    /* Reserved             = 0x00, */
-    Capability_Type[Capability_Type["Wireless_USB"] = 1] = "Wireless_USB";
-    Capability_Type[Capability_Type["USB_2_0_Extension"] = 2] = "USB_2_0_Extension";
-    Capability_Type[Capability_Type["SUPERSPEED_USB"] = 3] = "SUPERSPEED_USB";
-    Capability_Type[Capability_Type["CONTAINER_ID"] = 4] = "CONTAINER_ID";
-    Capability_Type[Capability_Type["PLATFORM"] = 5] = "PLATFORM";
-    Capability_Type[Capability_Type["POWER_DELIVERY_CAPABILITY"] = 6] = "POWER_DELIVERY_CAPABILITY";
-    Capability_Type[Capability_Type["BATTERY_INFO_CAPABILITY"] = 7] = "BATTERY_INFO_CAPABILITY";
-    Capability_Type[Capability_Type["PD_CONSUMER_PORT_CAPABILITY"] = 8] = "PD_CONSUMER_PORT_CAPABILITY";
-    Capability_Type[Capability_Type["PD_PROVIDER_PORT_CAPABILITY"] = 9] = "PD_PROVIDER_PORT_CAPABILITY";
-    Capability_Type[Capability_Type["SUPERSPEED_PLUS"] = 10] = "SUPERSPEED_PLUS";
-    Capability_Type[Capability_Type["PRECISION_TIME_MEASUREMENT"] = 11] = "PRECISION_TIME_MEASUREMENT";
-    Capability_Type[Capability_Type["Wireless_USB_Ext"] = 12] = "Wireless_USB_Ext";
-    /* Reserved             = 0x0D-0xFF */
-})(Capability_Type || (Capability_Type = {}));
-
 const Platform_UUIDs = {
     /* python -c "import uuid;print(', '.join(map(hex, uuid.UUID('3408b638-09a9-47a0-8bfd-a0768815b665').bytes_le)))" */
     WebUSB: [0x38, 0xb6, 0x8, 0x34, 0xa9, 0x9, 0xa0, 0x47, 0x8b, 0xfd, 0xa0, 0x76, 0x88, 0x15, 0xb6, 0x65],
@@ -858,7 +808,7 @@ const assert = (func, message) => {
                 return value;
             }
             else {
-                throw new Error(message + `: ${typeof value === 'number' ? hex$1(value) : value}`);
+                throw new Error(message + `: ${typeof value === 'number' ? hex(value) : value}`);
             }
         }
     };
@@ -1088,11 +1038,11 @@ let BOS_descriptor = Binary_Map(Binary_Map.object_transcoders)
 /*************
  * Utilities *
  *************/
-function hex(value) {
+function hex$1(value) {
     return "0x" + value.toString(16).padStart(2, "0");
 }
-function hex_buffer(buffer) {
-    return Array.from(new Uint8Array(buffer), hex).join(", ");
+function hex_buffer$1(buffer) {
+    return Array.from(new Uint8Array(buffer), hex$1).join(", ");
 }
 class USBTransferError extends Error {
     constructor(message, status) {
@@ -1187,7 +1137,7 @@ class Device {
             return this._string_descriptors.get(this._interface_id).get(index);
         }
         if (index !== 0 && language_id !== undefined && !(this._string_descriptors.get(this._interface_id).get(0).includes(language_id))) {
-            throw new Error(`Unsupported language id: ${hex(language_id)}`);
+            throw new Error(`Unsupported language id: ${hex$1(language_id)}`);
         }
         if (index !== 0 && language_id === undefined) {
             language_id = this._string_descriptors.get(this._interface_id).get(0 /* String Descriptor index */)[0 /* First LANGID */];
@@ -1228,7 +1178,7 @@ class Device {
                 index: 0
             }, total_length));
             if (data.byteLength < total_length) {
-                throw new USBTransferError(`Invalid length, ${total_length}, for BOS descriptor: ${hex_buffer(data.buffer)}`, 'ok');
+                throw new USBTransferError(`Invalid length, ${total_length}, for BOS descriptor: ${hex_buffer$1(data.buffer)}`, 'ok');
             }
             this._BOS_descriptors.set(this._interface_id, this.BOS_descriptor_parser(total_length).parse(new DataView(data.buffer)).data);
         }
@@ -1245,7 +1195,7 @@ class Device {
                 data = await Device.get_HID_class_descriptor(this.webusb_device, 33 /* HID */, 0, length, this._interface_id, 6 /* GET */);
             }
             if (data.byteLength < length) {
-                throw new USBTransferError("Invalid HID descriptor length: " + hex_buffer(data.buffer), "ok");
+                throw new USBTransferError("Invalid HID descriptor length: " + hex_buffer$1(data.buffer), "ok");
             }
             this._HID_descriptors.set(this._interface_id, this.HID_descriptor_parser(length).parse(new DataView(data.buffer)).data);
         }
@@ -1269,7 +1219,7 @@ class Device {
             let length = reports[0].size;
             let data = await Device.get_HID_class_descriptor(this.webusb_device, 34 /* Report */, 0, length, this._interface_id, 6 /* GET */);
             if (data.byteLength !== length) {
-                throw new USBTransferError("Invalid HID descriptor length: " + hex_buffer(data.buffer), "ok");
+                throw new USBTransferError("Invalid HID descriptor length: " + hex_buffer$1(data.buffer), "ok");
             }
             this._report_descriptors.set(this._interface_id, this.report_descriptor_parser(length).parse(new DataView(data.buffer)).data);
         }
@@ -1300,7 +1250,7 @@ class Device {
             }
             let data = await Device.get_HID_class_descriptor(this.webusb_device, 35 /* Physical */, index, length, this._interface_id, 6 /* GET */);
             if (data.byteLength !== length) {
-                throw new USBTransferError("Invalid HID descriptor length: " + hex_buffer(data.buffer), "ok");
+                throw new USBTransferError("Invalid HID descriptor length: " + hex_buffer$1(data.buffer), "ok");
             }
             this.physical_descriptor[index] = this.physical_descriptor_parser(length).parse(new DataView(data.buffer)).data;
         }
@@ -1485,7 +1435,7 @@ class Device {
                                         }
                                         const report_id = state.get('report_id');
                                         let struct;
-                                        if (state.get('usage_page') === usage.page && state.get('usage_id') == usage.object) {
+                                        if (state.get('usage_page') === usage.page && state.get('usage_id') === usage.object) {
                                             struct = Binary_Map(Binary_Map.object_transcoders);
                                         }
                                         else {

@@ -1,6 +1,6 @@
 {
   "name": "simple-hid",
-  "version": "1.0.0-rc4",
+  "version": "1.0.0-rc5",
   "description": "Simplified USB-HID based protocol library, designed for use with WebUSB",
   "main": "./dist/simpleHID.js",
   "typings": "./typings/simpleHID.d.ts",
@@ -25,12 +25,12 @@
   },
   "homepage": "https://github.com/EntropicEngineering/SimpleHID#readme",
   "devDependencies": {
-    "rollup": "^0.52.3",
-    "rollup-plugin-node-resolve": "^3.0.2",
-    "typescript": "^2.6.2"
+    "rollup": "^0.56.2",
+    "rollup-plugin-node-resolve": "^3.0.3",
+    "typescript": "^2.7.2"
   },
   "dependencies": {
-    "binary-structures": "^1.8.0"
+    "binary-structures": "^1.8.1"
   },
   "files": [
     "src/*.ts",

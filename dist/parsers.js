@@ -1,6 +1,5 @@
 import 'improved-map';
 import * as HID from './HID_data';
-import * as USB from './USB_data';
 import { Pass, Binary_Map, Byte_Buffer, Bits, Uint, Uint8, Uint16LE, Uint32LE, Int8, Int16LE, Int32LE, Embed, Padding, Branch, Repeat, hex } from 'binary-structures';
 export const Platform_UUIDs = {
     /* python -c "import uuid;print(', '.join(map(hex, uuid.UUID('3408b638-09a9-47a0-8bfd-a0768815b665').bytes_le)))" */

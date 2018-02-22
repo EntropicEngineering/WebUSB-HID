@@ -31,12 +31,3 @@ interface Text_Decoder_Constructor {
 }
 
 declare const TextDecoder: Text_Decoder_Constructor;
-
-interface Navigator {
-    simpleHID: any;
-}
-
-/* Pushing this to the global object because of a deficiency in typescript. */
-interface SymbolConstructor {
-    Context_Parent: symbol;
-}

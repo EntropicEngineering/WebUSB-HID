@@ -31,7 +31,7 @@
     "typescript": "^2.7.2"
   },
   "dependencies": {
-    "binary-structures": "^1.8.1"
+    "binary-structures": "^2.0.0"
   },
   "files": [
     "src/*.ts",

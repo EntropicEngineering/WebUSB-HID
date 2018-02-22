@@ -323,7 +323,6 @@ export class Device {
             }
             const usage = Object.freeze(usage_map.toObject());
 
-            // FIXME: Make objects for happy API
             const reports: Report_Types = {
                 input: {},
                 output: {},
@@ -835,4 +834,9 @@ async function output(device: Device, report_type: HID.Request_Report_Type, repo
     return { id, length, data_view }
 }
 
+declare global {
+    interface Navigator {
+        simpleHID: any;
+    }
+}
 navigator.simpleHID = Device;

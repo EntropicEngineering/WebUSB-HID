@@ -26,13 +26,13 @@ function hex_buffer(buffer: ArrayBuffer) {
 }
 
 export class USBTransferError extends Error {
-    constructor(message: string, status: WebUSB.USBTransferStatus) {
+    constructor(message: string, status?: USBTransferStatus) {
         super(message + ` Transfer Status: ${status}`);
         this.name = 'USBTransferError';
         this.status = status;
     }
 
-    status: WebUSB.USBTransferStatus;
+    status?: USBTransferStatus;
 }
 
 export class ConnectionError extends Error {}
@@ -71,14 +71,14 @@ export interface Report_Types {
  ******************/
 
 export class Device {
-    constructor(...filters: WebUSB.USBDeviceFilter[]) {
+    constructor(...filters: USBDeviceFilter[]) {
         this._filters = filters;
     }
 
     private _interface_id = 0;
     private _configuration_id = 1;
-    readonly _filters: WebUSB.USBDeviceFilter[];
-    protected webusb_device: WebUSB.USBDevice | undefined = undefined;
+    readonly _filters: USBDeviceFilter[];
+    protected webusb_device: USBDevice | undefined = undefined;
     private _HID_descriptors: Per_Interface<Parsed_Object> = new Map();
     private _BOS_descriptors: Per_Interface<Parsed_Object> = new Map();
     private _report_descriptors: Per_Interface<Array<Parsed_Object>> = new Map();
@@ -88,7 +88,7 @@ export class Device {
     private _max_input_length = 0;
     private _report_ids = false;
 
-    static verify_transfer_in(result: WebUSB.USBInTransferResult) {
+    static verify_transfer_in(result: USBInTransferResult) {
         if ( result.status !== "ok" ) {
             throw new USBTransferError("HID descriptor transfer failed.", result.status);
         } else {
@@ -96,7 +96,7 @@ export class Device {
         }
     }
 
-    static verify_transfer_out(result: WebUSB.USBOutTransferResult) {
+    static verify_transfer_out(result: USBOutTransferResult) {
         if ( result.status !== "ok" ) {
             throw new USBTransferError("HID descriptor transfer failed.", result.status);
         } else {
@@ -681,7 +681,7 @@ export class Device {
         await this.build_reports();
     }
 
-    async connect(...filters: WebUSB.USBDeviceFilter[]): Promise<Device> {
+    async connect(...filters: USBDeviceFilter[]): Promise<Device> {
 
         // if ( this === undefined ) {
         //     /* Instantiate class, then connect */
@@ -708,7 +708,7 @@ export class Device {
         return this;
     }
 
-    static async connect(...filters: WebUSB.USBDeviceFilter[]): Promise<Device> {
+    static async connect(...filters: USBDeviceFilter[]): Promise<Device> {
         /* Instantiate class, then connect */
         return await ( new Device(...filters) ).connect();
     }
@@ -794,7 +794,7 @@ export class Device {
         return length === Device.verify_transfer_out(result);
     }
 
-    static async get_HID_class_descriptor(device: WebUSB.USBDevice,
+    static async get_HID_class_descriptor(device: USBDevice,
                                           type: number,
                                           index: number,
                                           length: number,

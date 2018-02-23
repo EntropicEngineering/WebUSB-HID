@@ -1,6 +1,6 @@
 {
   "name": "simple-hid",
-  "version": "1.0.0-rc6",
+  "version": "1.0.0",
   "description": "Simplified USB-HID based protocol library, designed for use with WebUSB",
   "main": "./dist/simpleHID.js",
   "typings": "./typings/simpleHID.d.ts",

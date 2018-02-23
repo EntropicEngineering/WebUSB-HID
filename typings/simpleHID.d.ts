@@ -41,9 +41,9 @@ export interface Report_Types {
     'feature': Reports;
     [id: number]: Reports;
 }
-/******************
- * Default Export *
- ******************/
+/***************
+ * Main Export *
+ ***************/
 export declare class Device {
     constructor(...filters: USBDeviceFilter[]);
     private _interface_id;
@@ -58,8 +58,6 @@ export declare class Device {
     private _string_descriptors;
     private _max_input_length;
     private _report_ids;
-    static verify_transfer_in(result: USBInTransferResult): DataView;
-    static verify_transfer_out(result: USBOutTransferResult): number;
     verify_connection(): void;
     verify_reports(error?: boolean): Promise<Report_Types>;
     get_report_id(report_type: HID.Request_Report_Type, report_id?: number | string): Promise<number>;
@@ -86,9 +84,9 @@ export declare class Device {
     readonly report_descriptor: Parsed_Object[] | undefined;
     readonly physical_descriptor: Parsed[] | undefined;
     readonly reports: Report_Types | undefined;
-    /******************
-     * Public Methods *
-     ******************/
+    /********************
+     * Main API Methods *
+     ********************/
     set_configuration_id(id: number): Promise<void>;
     set_interface_id(id: number): Promise<void>;
     connect(...filters: USBDeviceFilter[]): Promise<Device>;
@@ -103,5 +101,9 @@ export declare class Device {
         id: number;
     }>;
     set_feature(report_id: number | string | Parsed, data?: Parsed): Promise<boolean>;
-    static get_HID_class_descriptor(device: USBDevice, type: number, index: number, length: number, interface_id: number, request: HID.Descriptor_Request): Promise<DataView>;
+}
+declare global  {
+    interface Navigator {
+        simpleHID: any;
+    }
 }

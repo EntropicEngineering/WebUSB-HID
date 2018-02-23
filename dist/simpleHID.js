@@ -29,9 +29,35 @@ export class ReportError extends Error {
 }
 export class DescriptorError extends Error {
 }
-/******************
- * Default Export *
- ******************/
+function verify_transfer_in(result) {
+    if (result.status !== "ok") {
+        throw new USBTransferError("HID descriptor transfer failed.", result.status);
+    }
+    else {
+        return result.data;
+    }
+}
+function verify_transfer_out(result) {
+    if (result.status !== "ok") {
+        throw new USBTransferError("HID descriptor transfer failed.", result.status);
+    }
+    else {
+        return result.bytesWritten;
+    }
+}
+async function get_HID_class_descriptor(device, type, index, length, interface_id, request) {
+    let result = await device.controlTransferIn({
+        requestType: "standard",
+        recipient: "interface",
+        request: request,
+        value: type * 256 + index,
+        index: interface_id
+    }, length);
+    return verify_transfer_in(result);
+}
+/***************
+ * Main Export *
+ ***************/
 export class Device {
     constructor(...filters) {
         this._interface_id = 0;
@@ -46,22 +72,6 @@ export class Device {
         this._max_input_length = 0;
         this._report_ids = false;
         this._filters = filters;
-    }
-    static verify_transfer_in(result) {
-        if (result.status !== "ok") {
-            throw new USBTransferError("HID descriptor transfer failed.", result.status);
-        }
-        else {
-            return result.data;
-        }
-    }
-    static verify_transfer_out(result) {
-        if (result.status !== "ok") {
-            throw new USBTransferError("HID descriptor transfer failed.", result.status);
-        }
-        else {
-            return result.bytesWritten;
-        }
     }
     verify_connection() {
         if (this.webusb_device === undefined) {
@@ -114,7 +124,7 @@ export class Device {
         if (index !== 0 && language_id === undefined) {
             language_id = this._string_descriptors.get(this._interface_id).get(0 /* String Descriptor index */)[0 /* First LANGID */];
         }
-        let data = Device.verify_transfer_in(await this.webusb_device.controlTransferIn({
+        let data = verify_transfer_in(await this.webusb_device.controlTransferIn({
             requestType: "standard",
             recipient: "device",
             request: 6 /* GET_DESCRIPTOR */,
@@ -134,7 +144,7 @@ export class Device {
     async get_BOS_descriptor() {
         this.verify_connection();
         if (this.BOS_descriptor === undefined) {
-            let data = Device.verify_transfer_in(await this.webusb_device.controlTransferIn({
+            let data = verify_transfer_in(await this.webusb_device.controlTransferIn({
                 requestType: "standard",
                 recipient: "device",
                 request: 6 /* GET_DESCRIPTOR */,
@@ -142,7 +152,7 @@ export class Device {
                 index: 0
             }, 5 /* BOS header size */));
             let total_length = data.getUint16(2, true);
-            data = Device.verify_transfer_in(await this.webusb_device.controlTransferIn({
+            data = verify_transfer_in(await this.webusb_device.controlTransferIn({
                 requestType: "standard",
                 recipient: "device",
                 request: 6 /* GET_DESCRIPTOR */,
@@ -160,11 +170,11 @@ export class Device {
         this.verify_connection();
         if (this.HID_descriptor === undefined) {
             let length = 9;
-            let data = await Device.get_HID_class_descriptor(this.webusb_device, 33 /* HID */, 0, length, this._interface_id, 6 /* GET */);
+            let data = await get_HID_class_descriptor(this.webusb_device, 33 /* HID */, 0, length, this._interface_id, 6 /* GET */);
             let returned_length = data.getUint8(0);
             if (length < returned_length) {
                 length = returned_length;
-                data = await Device.get_HID_class_descriptor(this.webusb_device, 33 /* HID */, 0, length, this._interface_id, 6 /* GET */);
+                data = await get_HID_class_descriptor(this.webusb_device, 33 /* HID */, 0, length, this._interface_id, 6 /* GET */);
             }
             if (data.byteLength < length) {
                 throw new USBTransferError("Invalid HID descriptor length: " + hex_buffer(data.buffer), "ok");
@@ -189,7 +199,7 @@ export class Device {
                 throw new USBTransferError("Report descriptor missing from HID descriptor.", "ok");
             }
             let length = reports[0].size;
-            let data = await Device.get_HID_class_descriptor(this.webusb_device, 34 /* Report */, 0, length, this._interface_id, 6 /* GET */);
+            let data = await get_HID_class_descriptor(this.webusb_device, 34 /* Report */, 0, length, this._interface_id, 6 /* GET */);
             if (data.byteLength !== length) {
                 throw new USBTransferError("Invalid HID descriptor length: " + hex_buffer(data.buffer), "ok");
             }
@@ -220,7 +230,7 @@ export class Device {
             else if (length === undefined) {
                 throw new Error("Undefined Physical descriptor length.");
             }
-            let data = await Device.get_HID_class_descriptor(this.webusb_device, 35 /* Physical */, index, length, this._interface_id, 6 /* GET */);
+            let data = await get_HID_class_descriptor(this.webusb_device, 35 /* Physical */, index, length, this._interface_id, 6 /* GET */);
             if (data.byteLength !== length) {
                 throw new USBTransferError("Invalid HID descriptor length: " + hex_buffer(data.buffer), "ok");
             }
@@ -258,7 +268,6 @@ export class Device {
                 }
             }
             const usage = Object.freeze(usage_map.toObject());
-            // FIXME: Make objects for happy API
             const reports = {
                 input: {},
                 output: {},
@@ -574,7 +583,7 @@ export class Device {
     /***************************
      * Public Attribute Access *
      ***************************/
-    /* Getters cannot dynamic generate missing descriptors/reports because they're inherently synchronous. */
+    /* Getters cannot dynamically generate missing descriptors/reports because they're inherently synchronous. */
     get interface_id() {
         return this._interface_id;
     }
@@ -596,9 +605,9 @@ export class Device {
     get reports() {
         return this._reports.get(this._interface_id);
     }
-    /******************
-     * Public Methods *
-     ******************/
+    /********************
+     * Main API Methods *
+     ********************/
     async set_configuration_id(id) {
         this.verify_connection();
         throw Error("Not Implemented");
@@ -610,10 +619,7 @@ export class Device {
         await this.build_reports();
     }
     async connect(...filters) {
-        // if ( this === undefined ) {
-        //     /* Instantiate class, then connect */
-        //     return await ( new Device(...filters) ).connect();
-        // }
+        // TODO: Detect & handle device disconnect
         if (this.webusb_device !== undefined) {
             /* Already connected */
             return this;
@@ -642,7 +648,7 @@ export class Device {
             }
         }
         const result = await this.webusb_device.transferIn(endpoint_id, this._max_input_length + 1);
-        const data_view = Device.verify_transfer_in(result);
+        const data_view = verify_transfer_in(result);
         let report_id = 0;
         let byte_offset = 0;
         if (this._report_ids) {
@@ -675,7 +681,7 @@ export class Device {
         else {
             result = await this.webusb_device.transferOut(endpoint_id, data_view.buffer);
         }
-        return length === Device.verify_transfer_out(result);
+        return length === verify_transfer_out(result);
     }
     async get_feature(report_id) {
         this.verify_connection();
@@ -694,7 +700,7 @@ export class Device {
             value: 3 /* Feature */ * 256 + id,
             index: this._interface_id
         }, length);
-        const data_view = Device.verify_transfer_in(result);
+        const data_view = verify_transfer_in(result);
         const data = report.parse(data_view, { byte_offset }).data;
         return { data, id };
     }
@@ -708,17 +714,7 @@ export class Device {
             value: 3 /* Feature */ * 256 + id,
             index: this._interface_id
         }, data_view);
-        return length === Device.verify_transfer_out(result);
-    }
-    static async get_HID_class_descriptor(device, type, index, length, interface_id, request) {
-        let result = await device.controlTransferIn({
-            requestType: "standard",
-            recipient: "interface",
-            request: request,
-            value: type * 256 + index,
-            index: interface_id
-        }, length);
-        return Device.verify_transfer_in(result);
+        return length === verify_transfer_out(result);
     }
 }
 async function output(device, report_type, report_id, data) {

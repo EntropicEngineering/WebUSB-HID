@@ -67,6 +67,25 @@ Usage_Page (SimpleHID_vendor_page)          /* default of 0xFFAA */
 Usage_ID (SimpleHID_application_collection) /* default of 0x0000 */
 Collection (Application)
 
+    /* Report Name: 'config'
+     * Report ID:   1
+     * Report Type: Feature
+     * Report Data: { 'timeout': Uint64,
+     *                'error_threshold': Uint16,
+     *                'item_order': Uint8[10] }
+     */
+    String_Index(7)         /* u'config'*/
+    Report_ID(1)
+    Usage_ID(USAGE_OBJECT)
+    Collection(Report)
+        String_Index(8)     /* u'timeout' */
+        Usage_ID(USAGE_UINT) Report_Size(64) Report_Count(1) Feature(Variable | Volatile)
+        String_Index(9)     /* u'threshold' */
+        Usage_ID(USAGE_UINT) Report_Size(16) Report_Count(1) Feature(Variable | Volatile)
+        String_Index(10)    /* u'item_order' */
+        Usage_ID(USAGE_UINT) Report_Size(8) Report_Count(10) Feature(Variable | Volatile)
+    End_Collection
+
     /* Report Name: 'timestamp'
      * Report ID:   1
      * Report Type: Output
@@ -99,25 +118,6 @@ Collection (Application)
         Usage_ID(USAGE_UINT) Report_Size(32) Report_Count(1) Input(Variable)        /* 1x Uint32 */
         String_Index(5)     /* u'status */
         Usage_ID(USAGE_UINT) Report_Size(8) Report_Count(4) Input(Variable)         /* 4x Uint8 */
-    End_Collection
-
-    /* Report Name: 'config'
-     * Report ID:   2
-     * Report Type: Feature
-     * Report Data: { 'timeout': Uint64,
-     *                'error_threshold': Uint16,
-     *                'item_order': Uint8[10] }
-     */
-    String_Index(7)         /* u'config'*/
-    Report_ID(2)
-    Usage_ID(USAGE_OBJECT)
-    Collection(Report)
-        String_Index(8)     /* u'timeout' */
-        Usage_ID(USAGE_UINT) Report_Size(64) Report_Count(1) Feature(Variable | Volatile)
-        String_Index(9)     /* u'threshold' */
-        Usage_ID(USAGE_UINT) Report_Size(16) Report_Count(1) Feature(Variable | Volatile)
-        String_Index(10)    /* u'item_order' */
-        Usage_ID(USAGE_UINT) Report_Size(8) Report_Count(10) Feature(Variable | Volatile)
     End_Collection
 
     /* Report Name: 'event'
@@ -153,7 +153,8 @@ Collection (Application)
      *
      * Report Type: Input
      * Report Data: { 'single_array': [Uint16, Uint16, ...Uint16, Uint8, Uint8, ...Uint8],
-     *                'nested_arrays': [[Uint16, Uint16, ...Uint16], [Uint8, Uint8, ...Uint8]]
+     *                'nested_arrays': [ [Uint16, Uint16, ...Uint16],
+     *                                   [Uint8, Uint8, ...Uint8] ]
      *                'object': { 'ADCs': [Uint16, Uint16, ...Uint16],
      *                            'switches': [Uint8, Uint8, ...Uint8] }
      */

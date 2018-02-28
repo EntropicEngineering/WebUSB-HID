@@ -1,11 +1,5 @@
 import 'improved-map';
 import { Binary_Map } from 'binary-structures';
-export declare type Parsed = Parsed_Object | number | Array<Parsed_Object | number> | Parsed_Map;
-export interface Parsed_Object {
-    [name: string]: Parsed;
-}
-export interface Parsed_Map extends Map<string, Parsed> {
-}
 export declare const Platform_UUIDs: {
     WebUSB: number[];
     SimpleHID: number[];

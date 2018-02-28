@@ -25,13 +25,6 @@ import {
     Context
 } from 'binary-structures';
 
-export type Parsed = Parsed_Object | number | Array<Parsed_Object | number> | Parsed_Map;
-
-export interface Parsed_Object {
-    [name: string]: Parsed;
-}
-export interface Parsed_Map extends Map<string, Parsed> {}
-
 export const Platform_UUIDs = {
     /* python -c "import uuid;print(', '.join(map(hex, uuid.UUID('3408b638-09a9-47a0-8bfd-a0768815b665').bytes_le)))" */
     WebUSB: [0x38, 0xb6, 0x8, 0x34, 0xa9, 0x9, 0xa0, 0x47, 0x8b, 0xfd, 0xa0, 0x76, 0x88, 0x15, 0xb6, 0x65],

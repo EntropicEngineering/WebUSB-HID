@@ -5,12 +5,12 @@
  */
 
 import 'improved-map';
-import { Packed, Binary_Array, Binary_Map, Repeat, Uint8, Padding, Bits, Uint, Int, Float, Utf8, Byte_Buffer } from 'binary-structures';
+import { Packed, Parsed, Binary_Array, Binary_Map, Repeat, Uint8, Padding, Bits, Uint, Int, Float, Utf8, Byte_Buffer } from 'binary-structures';
 
 import * as HID from './HID_data';
 import * as USB from './USB_data';
 import {
-    BOS_descriptor, HID_descriptor, HID_item, languages_string_descriptor, string_descriptor, USAGES, USAGE, Parsed, Parsed_Object, Parsed_Map
+    BOS_descriptor, HID_descriptor, HID_item, languages_string_descriptor, string_descriptor, USAGES, USAGE
 } from './parsers';
 
 /*************
@@ -73,8 +73,27 @@ async function get_HID_class_descriptor(device: USBDevice,
     return verify_transfer_in(result);
 }
 
+export type Data = Data_Object | number | Array<Data_Object | number> | Data_Map;
+
+export interface Data_Object {
+    [name: string]: Data;
+}
+export interface Data_Map extends Map<string, Data> {}
 
 type Per_Interface<T> = Map<number, T>;
+
+export type Report_Data = Report_Object | Report_Array;
+
+export interface Report_Array extends Array<Report_Data> {}
+
+export interface Report_Object {
+    [name: string]: Report_Data;
+}
+
+export interface Report {
+    id: number;
+    data: Report_Data;
+}
 
 export interface Report_Struct {
     type?: HID.Request_Report_Type;
@@ -82,10 +101,8 @@ export interface Report_Struct {
     name?: string;
     byte_length?: number;
     pack(source: any, options?: { data_view?: DataView, byte_offset?: number }): Packed;
-    parse(data_view: DataView, options?: { byte_offset?: number }): any;
+    parse(data_view: DataView, options?: { byte_offset?: number }): Parsed<Report_Data>;
 }
-
-// type Reports = Map<HID.Request_Report_Type | 'input' | 'output' | 'feature', Map<number | string, Report_Struct | number>>
 
 export interface Reports {
     [id: number]: Report_Struct;
@@ -112,10 +129,10 @@ export class Device {
     private _configuration_id = 1;
     readonly _filters: USBDeviceFilter[];
     protected webusb_device: USBDevice | undefined = undefined;
-    private _HID_descriptors: Per_Interface<Parsed_Object> = new Map();
-    private _BOS_descriptors: Per_Interface<Parsed_Object> = new Map();
-    private _report_descriptors: Per_Interface<Array<Parsed_Object>> = new Map();
-    private _physical_descriptors: Per_Interface<Array<Parsed>> = new Map();
+    private _HID_descriptors: Per_Interface<Data_Object> = new Map();
+    private _BOS_descriptors: Per_Interface<Data_Object> = new Map();
+    private _report_descriptors: Per_Interface<Array<Data_Object>> = new Map();
+    private _physical_descriptors: Per_Interface<Array<Data>> = new Map();
     private _reports: Per_Interface<Report_Types> = new Map();
     private _string_descriptors: Per_Interface<Map<number, string | Array<number>>> = new Map();
     private _max_input_length = 0;
@@ -263,7 +280,7 @@ export class Device {
                 throw new USBTransferError("Invalid HID descriptor length: " + hex_buffer(data.buffer), "ok");
             }
 
-            this._report_descriptors.set(this._interface_id, this.report_descriptor_parser(length).parse(new DataView(data.buffer)).data as Array<Parsed_Object>);
+            this._report_descriptors.set(this._interface_id, this.report_descriptor_parser(length).parse(new DataView(data.buffer)).data as Array<Data_Object>);
         }
         return this.report_descriptor;
     }
@@ -316,7 +333,7 @@ export class Device {
                 await this.get_BOS_descriptor();
             }
 
-            const usage_map: Map<USAGES | 'version', number | Parsed_Object> = new Map();
+            const usage_map: Map<USAGES | 'version', number | Data_Object> = new Map();
             usage_map.set('version', {major: 1, minor: 0, patch: 0});
             usage_map.set('page', USAGE.page);
             usage_map.set('application', USAGE.application);
@@ -327,12 +344,12 @@ export class Device {
             usage_map.set('float', USAGE.float);
             usage_map.set('utf8', USAGE.utf8);
 
-            for ( const descriptor of this.BOS_descriptor!.capability_descriptors as Array<Parsed_Object> ) {
+            for ( const descriptor of this.BOS_descriptor!.capability_descriptors as Array<Data_Object> ) {
                 if ( descriptor.hasOwnProperty('simpleHID') ) {
-                    const d = descriptor.simpleHID as Parsed_Map;
+                    const d = descriptor.simpleHID as Data_Map;
                     // TODO: Better version compatibility checking
-                    if ( ( d.get('version') as Parsed_Object ).major > 1 ) {
-                        throw new DescriptorError(`Incompatible SimpleHID version: ${( d.get('version') as Parsed_Object ).major}`)
+                    if ( ( d.get('version') as Data_Object ).major > 1 ) {
+                        throw new DescriptorError(`Incompatible SimpleHID version: ${( d.get('version') as Data_Object ).major}`)
                     }
                     usage_map.update(d);
                     break;
@@ -350,7 +367,7 @@ export class Device {
             reports[HID.Request_Report_Type.Output] = reports.output;
             reports[HID.Request_Report_Type.Feature] = reports.feature;
 
-            type Stack = Array<Parsed_Map>
+            type Stack = Array<Data_Map>
 
             interface Collection {
                 struct: Report_Struct;
@@ -364,14 +381,14 @@ export class Device {
             let delimiter_stack: Stack = [];
             let delimited = false;
 
-            let empty_local_state = () => new Map<string, Stack | Parsed>([['usage_stack', []], ['string_stack', []], ['designator_stack', []]]);
+            let empty_local_state = () => new Map<string, Stack | Data>([['usage_stack', []], ['string_stack', []], ['designator_stack', []]]);
 
             const states = new Map([
                 [HID.Report_Item_Type.Global, new Map()],
                 [HID.Report_Item_Type.Local, empty_local_state()],
             ]);
 
-            const add_raw_tags = (item: Parsed_Object) => {
+            const add_raw_tags = (item: Data_Object) => {
                 /* Strips 'type', 'tag', and 'size' from item, then adds whatever is left to the correct state table */
                 states.get(item.type as HID.Report_Item_Type)!.update(Object.entries(item).slice(3));
             };
@@ -726,7 +743,7 @@ export class Device {
         return await ( new Device(...filters) ).connect();
     }
 
-    async receive() {
+    async receive(): Promise<Report> {
         this.verify_connection();
         let endpoint_id: number;
         for ( const endpoint of this.webusb_device!.configuration!.interfaces[this._interface_id].alternate.endpoints ) {
@@ -747,7 +764,7 @@ export class Device {
         return { id: report_id, data: report.parse(data_view, { byte_offset }).data };
     }
 
-    async send(report_id: number | string | Parsed, data: Parsed = []) {
+    async send(report_id: number | string | Data, data: Data = []) {
         this.verify_connection();
         const { id, length, data_view } = await output(this, HID.Request_Report_Type.Output, report_id, data);
         let endpoint_id: number | undefined = undefined;
@@ -772,7 +789,7 @@ export class Device {
         return length === verify_transfer_out(result);
     }
 
-    async get_feature(report_id?: number | string) {
+    async get_feature(report_id?: number | string): Promise<Report> {
         this.verify_connection();
         const id = await this.get_report_id(HID.Request_Report_Type.Feature, report_id);
         const report = this.reports![HID.Request_Report_Type.Feature][id] as Report_Struct;
@@ -794,7 +811,7 @@ export class Device {
         return { data, id };
     }
 
-    async set_feature(report_id: number | string | Parsed, data?: Parsed) {
+    async set_feature(report_id: number | string | Data, data?: Data) {
         this.verify_connection();
         const { id, length, data_view } = await output(this, HID.Request_Report_Type.Feature, report_id, data);
         let result = await this.webusb_device!.controlTransferOut({
@@ -808,13 +825,13 @@ export class Device {
     }
 }
 
-async function output(device: Device, report_type: HID.Request_Report_Type, report_id: number | string | Parsed, data?: Parsed) {
+async function output(device: Device, report_type: HID.Request_Report_Type, report_id: number | string | Data, data?: Data) {
     let id: number;
     if ( typeof report_id === "number" || typeof report_id === "string" ) {
         id = await device.get_report_id(report_type, report_id);
     } else {
         id = await device.get_report_id(report_type, undefined);
-        data = report_id as Parsed;
+        data = report_id as Data;
     }
     const report = device.reports![report_type][id] as Report_Struct;
     let length = Math.ceil(report.byte_length as number);

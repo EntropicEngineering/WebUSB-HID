@@ -26,12 +26,12 @@
   "homepage": "https://github.com/EntropicEngineering/SimpleHID#readme",
   "devDependencies": {
     "@types/w3c-web-usb": "^1.0.0",
-    "rollup": "^0.56.2",
+    "rollup": "^0.56.3",
     "rollup-plugin-node-resolve": "^3.0.3",
     "typescript": "^2.7.2"
   },
   "dependencies": {
-    "binary-structures": "^2.0.0"
+    "binary-structures": "^2.1.0"
   },
   "files": [
     "src/*.ts",

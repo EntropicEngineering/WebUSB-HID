@@ -73,22 +73,17 @@ async function get_HID_class_descriptor(device: USBDevice,
     return verify_transfer_in(result);
 }
 
-export type Data = Data_Object | number | Array<Data_Object | number> | Data_Map;
+export type Data = number | Data_Object | Data_Array | Data_Map;
 
 export interface Data_Object {
     [name: string]: Data;
 }
+export interface Data_Array extends Array<Data> {}
 export interface Data_Map extends Map<string, Data> {}
 
 type Per_Interface<T> = Map<number, T>;
 
-export type Report_Data = Report_Object | Report_Array;
-
-export interface Report_Array extends Array<Report_Data> {}
-
-export interface Report_Object {
-    [name: string]: Report_Data;
-}
+export type Report_Data = Data_Object | Data_Array;
 
 export interface Report {
     id: number;

@@ -17,18 +17,15 @@ export declare class ReportError extends Error {
 }
 export declare class DescriptorError extends Error {
 }
-export declare type Data = Data_Object | number | Array<Data_Object | number> | Data_Map;
+export declare type Data = number | Data_Object | Data_Array | Data_Map;
 export interface Data_Object {
     [name: string]: Data;
 }
+export interface Data_Array extends Array<Data> {
+}
 export interface Data_Map extends Map<string, Data> {
 }
-export declare type Report_Data = Report_Object | Report_Array;
-export interface Report_Array extends Array<Report_Data> {
-}
-export interface Report_Object {
-    [name: string]: Report_Data;
-}
+export declare type Report_Data = Data_Object | Data_Array;
 export interface Report {
     id: number;
     data: Report_Data;
